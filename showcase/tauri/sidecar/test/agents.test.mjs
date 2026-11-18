@@ -249,6 +249,8 @@ assert.match(agentSystem('maker', { dir: '/x', returns: 'answer' }), /report is 
   const mgr = mk();
   const tick = () => new Promise((r) => setTimeout(r, 400));
   const lastOf = (type) => events.filter((e) => e.type === type).at(-1);
+  // Ending an agent writes its record before it's reported, which can take longer than a tick on a slow disk (Windows CI).
+  const until = async (ok, ms = 5000) => { for (const t0 = Date.now(); !ok() && Date.now() - t0 < ms;) await new Promise((r) => setTimeout(r, 50)); };
 
   // Starting: its folder, its process, its row.
   fs.writeFileSync(path.join(home, 'logo.png'), 'img');
@@ -364,6 +366,7 @@ assert.match(agentSystem('maker', { dir: '/x', returns: 'answer' }), /report is 
   assert.equal(t.signals.length, 0, 'a heartbeat alone is not progress, but 3 minutes have not passed');
   T += 61_000; t.emit('message', { t: 'beat' }); mgr.check(); await tick();
   const tid = t.sent[0].agent.id;
+  await until(() => lastOf('fail')?.agent.id === tid);
   assert.equal(mgr.get(tid).state, 'failed');
   assert.match(mgr.get(tid).reason, /stuck/);
   assert.equal(lastOf('fail').agent.id, tid);

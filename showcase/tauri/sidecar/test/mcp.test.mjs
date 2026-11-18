@@ -102,7 +102,7 @@ assert.deepEqual(imp['claude-desktop'].map((s) => s.name), ['files'], 'names tha
 // Helpers.
 assert.deepEqual(toConfig('x', { type: 'sse', url: 'https://a.test/sse', enabled: false }), { name: 'x', url: 'https://a.test/sse', transport: 'sse', enabled: false });
 assert.equal(whereOf({ command: 'uvx', args: ['mcp-server-time'] }), 'uvx mcp-server-time');
-assert.match(importPaths({ home: '/Users/ken', platform: 'darwin' })['claude-desktop'], /Library\/Application Support\/Claude\/claude_desktop_config\.json$/);
+assert.match(importPaths({ home: '/Users/ken', platform: 'darwin' })['claude-desktop'].replaceAll('\\', '/'), /Library\/Application Support\/Claude\/claude_desktop_config\.json$/);
 assert.equal(importPaths({ home: 'C:\\Users\\ken', platform: 'win32', env: { APPDATA: 'C:\\Users\\ken\\AppData\\Roaming' } })['claude-desktop'], path.join('C:\\Users\\ken\\AppData\\Roaming', 'Claude', 'claude_desktop_config.json'));
 console.log('mcp ok');
 
