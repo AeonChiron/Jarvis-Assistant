@@ -61,7 +61,19 @@
     if (!id) return;
     shutBlock(`key-${id}`, () => { if (ui.key === id) { ui.key = null; render(`addkey:${id}`); } });
   }
-  const leave = (from, id) => { from.closest('.item')?.classList.add('leaving'); setTimeout(() => act(id), REDUCED.matches ? 0 : 190); };
+  // A row being removed dissolves out, then leaves the list at once (the rows below step up as it goes, so no empty
+  // gap waits for the sidecar). Until the new state drops it, every redraw keeps it out, so it never blinks back; if
+  // the removal didn't happen after a few seconds, it returns.
+  const gone = new Map(); // the row's action key → when to give up on it
+  const rowOf = (k) => document.querySelector(`.pane [data-k="${CSS.escape(k)}"]`)?.closest('li');
+  const keepGone = () => { for (const [k, until] of gone) { if (Date.now() > until) gone.delete(k); else rowOf(k)?.classList.add('gone'); } };
+  const leave = (from, id) => {
+    const k = from.dataset.k, row = from.closest('li');
+    if (k) gone.set(k, Date.now() + 4000);
+    row?.classList.add('leaving');
+    setTimeout(() => { row?.classList.add('gone'); act(id); }, REDUCED.matches ? 0 : 190);
+    setTimeout(() => { if (k && gone.delete(k) && rowOf(k)) render(); }, 4100);
+  };
   // Asks first in the same spot: the first press turns it into Confirm (for 4 s), the second does it.
   const armed = (label, yes, k, id, aria) => {
     const on = ui.arm === k;
@@ -399,7 +411,7 @@
   function fit() {
     let changed = false;
     for (const box of document.querySelectorAll(`#pane-${tab} .pagebox`)) {
-      const rows = [...box.querySelectorAll('.list > li')];
+      const rows = [...box.querySelectorAll('.list > li')].filter((r) => r.offsetHeight > 0); // not one being removed (hidden)
       if (!rows.length || !box.clientHeight) continue;
       const open = (r) => r.classList.contains('open');
       const shut = rows.filter((r) => !open(r));
@@ -420,13 +432,34 @@
   // ---------------------------------------------------------------- Memory
   // Two tabs, What I remember and Commitments, each a page at a time; Get to know me at the end of the tab row.
   function memory() {
-    const on = ui.mtab;
+    const on = ui.mtab === 'commits' ? 'commits' : 'facts';
     return [
       el('div', { className: 'mhead' },
         tabRow('Memory', 'mem-panel', [['facts', 'What I remember'], ['commits', 'Commitments']], on, (id) => { ui.mtab = id; }),
         link('Get to know me', () => act('intro', true), { k: 'intro', disabled: state.intro })),
       ...(on === 'commits' ? commitList() : factList()),
     ];
+  }
+  // ---------------------------------------------------------------- Abilities
+  // What I can do beyond talking, a tab each: skills I know, apps I'm connected to, and what I do on my own.
+  const ABILITY_TABS = [['skills', 'Skills'], ['connections', 'Connections'], ['routines', 'Routines']];
+  function abilitiesPage() {
+    const t = pageTab('abilities', ABILITY_TABS);
+    const head = el('div', { className: 'mhead' }, tabRow('Abilities', 'ab-panel', ABILITY_TABS, t, (id) => { ui.tabs.abilities = id; }));
+    const { body, foot: end } = t === 'connections' ? connectionsTab() : t === 'routines' ? routinesTab() : skillList();
+    return [head, tabPanel('ab-panel', t, ...body), end];
+  }
+  // How-tos I learned (by asking me to remember how, or on my own after a long task that worked). View opens the file;
+  // Remove, like the other Abilities tabs (Forget is for what I remember about them).
+  function skillList() {
+    const k = state.skills ?? [];
+    const { box, nav } = paged('skills', k, (x) => el('li', { className: 'item mem' },
+      el('span', { className: 'text', dir: 'auto', title: x.description }, x.name, el('small', { textContent: x.description })),
+      el('span', { className: 'row-btns' },
+        link('View', () => act(`skill:view:${x.slug}`, true), { k: `skill:view:${x.slug}`, aria: `View the skill ${x.name}` }),
+        armed('Remove', 'Confirm', `skill:forget:${x.slug}`, `skill:forget:${x.slug}`, `Remove the skill ${x.name}`))),
+    { label: 'Skills', empty: `None yet. Say “remember how to do this” after I've done something.` });
+    return { body: [el('div', { className: 'group paged' }, box)], foot: foot(k.length ? el('p', { className: 'usage', textContent: `${k.length} skill${k.length === 1 ? '' : 's'}` }) : null, nav) };
   }
   function factList() {
     const f = state.facts, q = ui.q.trim().toLowerCase();
@@ -866,17 +899,53 @@
     ];
   }
   // Things I do on my own through the day.
-  function routinesPage() {
+  function routinesTab() {
     const f = state.focus;
-    return [
-      group('Routines', 'Things I do on my own through the day.', null,
+    return { body: [
+      group(null, 'Things I do on my own through the day.', null,
         state.brief ? toggle('Morning briefing', 'The first time you talk to me each day, I start with what’s due.', state.brief.on, () => act('morningbrief'), 'morningbrief') : null,
         state.brief?.on && state.brief.canTodoist ? toggle('Include Todoist', 'I read your Todoist window (opening it if needed). Stay signed in.', state.brief.todoist, () => act('brieftodoist'), 'brieftodoist') : null,
         f ? el('div', { className: 'setting' },
           el('span', {}, f.until ? 'Focus block running' : 'Focus distractions',
-            el('small', { textContent: f.until ? `Until ${new Date(f.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${f.task ? ` · ${f.task}` : ''}` : `Say “focus for 30 minutes”. I watch for: ${f.list.slice(0, 4).join(', ')}${f.list.length > 4 ? '…' : ''}` })),
+            el('small', { className: 'wrap', textContent: f.until ? `Until ${new Date(f.until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${f.task ? ` · ${f.task}` : ''}` : `Say “focus for 30 minutes”. I watch for: ${f.list.slice(0, 4).join(', ')}${f.list.length > 4 ? '…' : ''}` })),
           f.until ? link('Stop', () => act('focusstop'), { k: 'focusstop', aria: 'Stop the focus block' }) : link('Edit', () => act('distractions'), { k: 'distractions', aria: 'Edit the distraction list' })) : null),
-    ];
+      jobGroup(),
+    ] };
+  }
+  // Work an agent does at set times. They're made by asking (schedule_job); here they're run, paused or removed.
+  function jobGroup() {
+    const jobs = state.jobs ?? [];
+    return group('Scheduled jobs', 'Work an agent does for you at set times. Ask me to schedule one.', jobs.length || null,
+      jobs.length ? el('ul', { className: 'list', 'aria-label': 'Scheduled jobs' }, jobs.map((j) => el('li', { className: 'item mem' },
+        el('span', { className: 'text', dir: 'auto', title: j.title }, j.title,
+          el('small', { textContent: `${j.next}${j.repeat ? ` · ↻ ${j.repeat}` : ''}` }),
+          j.last ? el('small', { className: j.bad ? 'late' : '', textContent: j.last, title: j.last }) : null),
+        el('span', { className: 'row-btns' },
+          link('Run now', () => act(`job:run:${j.id}`), { k: `job:run:${j.id}`, aria: `Run ${j.title} now` }),
+          link(j.paused ? 'Resume' : 'Pause', () => act(`job:${j.paused ? 'resume' : 'pause'}:${j.id}`), { k: `job:pause:${j.id}`, aria: `${j.paused ? 'Resume' : 'Pause'} ${j.title}` }),
+          armed('Remove', 'Confirm', `job:remove:${j.id}`, `job:remove:${j.id}`, `Remove ${j.title}`))))) : el('p', { className: 'empty', textContent: 'No scheduled jobs yet.' }));
+  }
+  // Apps and services I use through their MCP servers. They're added by asking me (I find the server, ask before
+  // connecting, and take any key in the chat input); here they're switched off, signed in to or removed.
+  const CONN_STATE = { connected: (x) => `Connected · ${x.toolCount} tool${x.toolCount === 1 ? '' : 's'}`, 'needs-login': () => 'Needs sign-in', 'needs-key': (x) => `Needs a key${x.error ? ` (${x.error.replace(/^needs /, '')})` : ''}`,
+    error: (x) => `Not working: ${x.error ?? 'no answer'}`, off: () => 'Off', connecting: () => 'Connecting…', idle: () => 'Not connected yet' };
+  function connectionsTab() {
+    const list = state.connections ?? [];
+    const { box, nav } = paged('connections', list, (x) => {
+      const bad = x.state === 'error' || x.state === 'needs-key' || x.state === 'needs-login';
+      return el('li', { className: 'acct' }, el('div', { className: 'setting' },
+        el('span', { id: `lbl-mcp-${x.name}` }, el('span', { className: 'acct-name' }, x.name, x.state === 'connected' ? el('span', { className: 'led on', role: 'img', 'aria-label': 'Connected', 'data-tip': 'Connected' }) : null),
+          el('small', { className: bad ? 'late' : '', textContent: (CONN_STATE[x.state] ?? CONN_STATE.idle)(x), title: x.where })),
+        el('span', { className: 'row-btns' },
+          x.state === 'needs-login' ? link('Sign in', () => act(`mcp:login:${x.name}`, true), { k: `mcp:login:${x.name}`, aria: `Sign in to ${x.name}` }) : null,
+          armed('Remove', 'Confirm', `mcp:remove:${x.name}`, `mcp:remove:${x.name}`, `Remove the ${x.name} connection and its keys`),
+          el('button', { className: 'px switch', type: 'button', role: 'switch', 'aria-checked': String(!!x.enabled), 'aria-labelledby': `lbl-mcp-${x.name}`, 'data-k': `mcp:sw:${x.name}`,
+            on: { click: () => act(`mcp:${x.enabled ? 'off' : 'on'}:${x.name}`) } }))));
+    }, { label: 'Connections', empty: 'No apps connected yet.' });
+    return {
+      body: [group(null, 'Apps like Linear and Notion I can use for you.', null), el('div', { className: 'group paged' }, box)],
+      foot: foot(btn('Connect an app', () => act('askconnect', true), { k: 'askconnect' }), nav),
+    };
   }
   // What I may do, and when I start.
   function generalPage() {
@@ -889,6 +958,7 @@
         state.gameMode != null ? toggle('Game mode', 'In a fullscreen game, I move to a panel at the edge of the screen.', state.gameMode, () => act('gamemode'), 'gamemode') : null,
         toggle('Allow file edits and commands', 'Change files and run commands', state.actions, () => act('actions'), 'actions'),
         state.actions ? toggle('Skip Allow prompts', 'Go ahead without asking first. Blocked steps stay blocked.', state.skipAllow, () => act('skipallow'), 'skipallow') : null,
+        state.learnSkills != null ? toggle('Learn skills', 'After a long task that worked, I keep the how-to for next time.', state.learnSkills, () => act('learnskills'), 'learnskills') : null,
         state.login ? toggle('Open at login', null, state.login.on, () => act('login'), 'login') : null,
         state.sync ? el('div', { className: 'setting' },
           el('span', {}, 'Sync memory', el('small', { title: state.sync.dir, textContent: !state.sync.dir ? 'Share reminders and memory with your other computer' : state.sync.error ? `Not syncing: ${state.sync.error}` : `Via ${state.sync.dir.split(/[\\/]/).filter(Boolean).pop()}${state.sync.at ? ` · ${new Date(state.sync.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}` })),
@@ -969,7 +1039,7 @@
   }
 
   // ---------------------------------------------------------------- render
-  const PANES = { home, memory, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, routines: routinesPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
+  const PANES = { home, memory, abilities: abilitiesPage, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
   // focusKey: what to focus after (a data-k, or an element id); otherwise whatever had focus keeps it.
   function render(focusKey, animate = false) {
     if (!state) return;
@@ -986,7 +1056,7 @@
     const before = new Set([...pane.querySelectorAll('[data-anim]')].filter(shown).map((n) => n.dataset.anim));
     // A page with a list fits it to the room left and pages it; any other page scrolls.
     const draw = () => { pane.replaceChildren(...PANES[tab]().flat().filter(Boolean));
-    pane.classList.toggle('paged', !!pane.querySelector('.pagebox')); };
+    pane.classList.toggle('paged', !!pane.querySelector('.pagebox')); keepGone(); };
     draw();
     // Lists show as many rows as fit: drawn once to measure, again if a different number fits.
     if (fit()) draw();
@@ -1022,6 +1092,8 @@
   const TABS = Object.keys(PANES);
   const navi = (t) => $(`nav-${t}`);
   function show(name, focus = false) {
+    // Pages that became Abilities tabs (and Memory's old Skills tab) open that tab.
+    if (ABILITY_TABS.some(([id]) => id === name)) { ui.tabs.abilities = name; name = 'abilities'; }
     if (!PANES[name]) name = name === 'settings' ? 'model' : 'home';
     const changed = name !== tab;
     if (!changed && !focus) return;
@@ -1175,6 +1247,14 @@
       usage: { requests: 14, tokens: 31240 },
       facts: [{ id: 'f1', text: 'Prefers short answers in the morning' }, { id: 'f2', text: 'Working on the Roamies 1.0 launch, due end of month' }, { id: 'f3', text: 'Has a cat called Miso' }],
       commitments: [{ id: 'c1', text: 'Send the launch email', when: 'Fri 7 Nov, 10:00', overdue: false }, { id: 'c2', text: 'Book the dentist', when: 'Mon 3 Nov, 09:00', overdue: true }],
+      jobs: [{ id: 'j1a2b3c', title: 'Tech news', paused: false, next: 'Thu 6 Nov, 08:00', repeat: 'weekdays', last: 'Last: Summed up 6 stories on AI chips and a Mac update', bad: false },
+        { id: 'j4d5e6f', title: 'Tidy Downloads', paused: true, next: 'Paused', repeat: 'Fri', last: "Didn't run: Allow File Edits & Commands is off", bad: true }],
+      skills: [{ slug: 'export-figma-frames', name: 'Export Figma frames', description: 'When they want frames out of Figma as PNGs at 2x.' },
+        { slug: 'weekly-invoice', name: 'Weekly invoice', description: 'When making the Friday invoice in Numbers from the hours sheet.' }], learnSkills: true,
+      connections: [{ name: 'linear', remote: true, where: 'https://mcp.linear.app/mcp', enabled: true, state: 'connected', toolCount: 23, error: null },
+        { name: 'notion', remote: true, where: 'https://mcp.notion.com/mcp', enabled: true, state: 'needs-login', toolCount: 0, error: 'Requires login.' },
+        { name: 'everything', remote: false, where: 'npx -y @modelcontextprotocol/server-everything', enabled: true, state: 'error', toolCount: 0, error: 'spawn npx ENOENT' },
+        { name: 'files', remote: false, where: 'npx -y @modelcontextprotocol/server-filesystem ~/Desktop', enabled: false, state: 'off', toolCount: 0, error: null }],
       name: 'Roamie', look: 'classic', looks: [['classic', 'Roamie'], ['jarvis', 'JARVIS'], ['glayos', 'GlayOS'], ['ultren', 'Ultren'], ['anime', 'Anime Girl'], ['sarah', 'Sarah'], ['adrian', 'Adrian'], ['rita', 'Rita X']],
       size: 'default', sizes: [['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']],
       replies: 'voice', fishKey: true, fishModel: 'drama-3', fishFree: false,
@@ -1207,7 +1287,7 @@
       intro: false,
     };
     if (q.has('busy')) Object.assign(s, { busy: true, status: { state: 'busy', text: 'Reading notes.md' } });
-    if (q.has('empty')) Object.assign(s, { recent: [], facts: [], commitments: [], usage: null });
+    if (q.has('empty')) Object.assign(s, { recent: [], facts: [], commitments: [], jobs: [], skills: [], connections: [], usage: null });
     if (q.has('many')) {
       const things = ['Prefers short answers', 'Drinks oat flat whites', 'Works late on Thursdays', 'Has a cat called Miso', 'Training for a 10k in March', 'Learning Japanese', 'Uses Figma for design', 'Ships on Fridays', 'Allergic to peanuts', 'Sister is called Ana'];
       s.facts = Array.from({ length: 100 }, (_, i) => ({ id: `f${i}`, text: `${things[i % things.length]}${i >= things.length ? ` (${Math.floor(i / things.length) + 1})` : ''}` }));
@@ -1232,7 +1312,7 @@
     // ?v=0.1.36&from=0.1.35: What's new as it looks just after updating from one version to the other.
     if (q.get('v')) s.version = q.get('v');
     if (q.get('from')) s.whatsNewFrom = q.get('from');
-    if (q.get('tab')) setTimeout(() => { if (q.get('mtab')) ui.mtab = q.get('mtab'); show(q.get('tab')); }, 0);
+    if (q.get('tab')) setTimeout(() => { if (q.get('mtab')) ui.mtab = q.get('mtab'); if (q.get('atab')) ui.tabs.abilities = q.get('atab'); show(q.get('tab')); }, 0);
     setTimeout(() => window.__panel({ kind: 'state', state: s }), 0);
     return async (cmd, args) => {
       if (cmd !== 'sidecar_send') return null;
@@ -1250,6 +1330,10 @@
       if (s.voice && ['autolisten', 'listenevery'].includes(id)) { const k = id === 'autolisten' ? 'autoListen' : 'listenEvery'; s.voice[k] = !s.voice[k]; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (s.voice && id.startsWith('speechlang:')) { s.voice.lang = id.slice(11); s.voice.langOnline = ['ar-SA', 'he-IL'].includes(s.voice.lang) ? true : null; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (s.voice && id.startsWith('listensecs:')) { s.voice.listenSecs = Number(id.slice(11)); setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
+      // Removing a row (a skill, connection, job, fact or commitment) comes back as new state, as from the sidecar.
+      const gone = [[/^skill:forget:(.+)$/, 'skills', (x, v) => x.slug === v], [/^mcp:remove:(.+)$/, 'connections', (x, v) => x.name === v], [/^job:remove:(.+)$/, 'jobs', (x, v) => x.id === v],
+        [/^forget:(.+)$/, 'facts', (x, v) => x.id === v], [/^(?:done|drop):(.+)$/, 'commitments', (x, v) => x.id === v]].find(([re]) => re.test(id));
+      if (gone) { const v = id.match(gone[0])[1]; s[gone[1]] = s[gone[1]].filter((x) => !gone[2](x, v)); setTimeout(() => window.__panel({ kind: 'state', state: s }), Number(q.get('lag') ?? 120)); }
       if (id.startsWith('look:')) { s.look = id.slice(5); s.name = s.looks.find(([v]) => v === s.look)?.[1] ?? s.name; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       return null;
     };

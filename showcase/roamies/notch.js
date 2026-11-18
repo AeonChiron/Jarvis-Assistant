@@ -76,7 +76,7 @@
 .nc.drop.full .nc-body { --cw: var(--bw, 440px); top: calc(var(--row) + 8px); height: var(--bh, auto); opacity: 1; pointer-events: auto;
   transition: opacity .1s ease, --cw .44s cubic-bezier(.22, 1, .36, 1), height .4s cubic-bezier(.22, 1, .36, 1), top .52s cubic-bezier(.3, 1.25, .5, 1); }
 @property --cw { syntax: '<length>'; inherits: false; initial-value: 0px; }
-.nc.drop .nc-text { width: calc(var(--bw, 440px) - 40px); }
+.nc.drop .nc-text { width: calc(var(--bw, 440px) - 40px + var(--sb)); }
 /* The pill (its black, glow and contents) stays above the card while it slides out from under it. */
 .nc.drop .nc-skin, .nc.drop .nc-row { z-index: 1; }
 .nc.drop .nc-skin { background: #000; }
@@ -169,10 +169,20 @@
 .nc.full .nc-body { opacity: 1; transition: opacity 0s; }
 /* Notch style: the reply is inside the shape, so it's cut to the shape while it grows and shrinks. */
 .nc:not(.drop) .nc-body { clip-path: inset(0 0 max(0px, calc(100% - var(--h) + var(--row))) 0); }
-.nc:not(.drop) .nc-text { width: calc(var(--bw, 440px) - 40px); }
-.nc-text { margin: 0; max-height: ${MAX_BODY}px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px); }
-.nc-text.short { -webkit-mask-image: none; }
+.nc:not(.drop) .nc-text { width: calc(var(--bw, 440px) - 40px + var(--sb)); }
+/* The scrollbar has its own lane in the card's right margin (--sb wide), so it never sits over the words, whether the
+   system draws it over the content (macOS's default) or beside it; the words keep the same width either way. */
+.nc-text { --sb: 12px; margin: 0 calc(-1 * var(--sb)) 0 0; padding-right: var(--sb); box-sizing: border-box; scrollbar-gutter: stable;
+  max-height: ${MAX_BODY}px; overflow: hidden auto; overscroll-behavior: contain; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink);
+  scrollbar-width: thin; scrollbar-color: rgba(120,255,226,.35) transparent;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+/* Long replies scroll (wheel or trackpad); the edges fade only where there's more to see. */
+.nc-text::-webkit-scrollbar { width: 6px; }
+.nc-text::-webkit-scrollbar-thumb { background: rgba(120,255,226,.35); border-radius: 3px; }
+.nc-text::-webkit-scrollbar-track { background: transparent; }
+.nc-text.top { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent 100%); }
+.nc-text.end { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px); }
+.nc-text.short, .nc-text.top.end { -webkit-mask-image: none; }
 .nc-heard { color: var(--ink-3); }
 /* Each line is its own paragraph with its own direction (Arabic and Hebrew run right to left, in the Arabic font). */
 .nc-line:dir(rtl) { font-family: "Roamies Arabic RTL", "Martian Mono", "Roamies Arabic", ui-monospace, Menlo, monospace; }
@@ -332,7 +342,7 @@
   };
 
   // ---------- state ----------
-  const st = { mode: null, open: false, text: '', heard: '', mic: 0, lingerAt: 0, linger: 0, speech: null, prompt: null, hover: false, closeT: 0, folded: false, px: null, py: null, g: 0.4, look: 'jarvis', liq: null };
+  const st = { mode: null, open: false, text: '', heard: '', mic: 0, lingerAt: 0, linger: 0, speech: null, prompt: null, hover: false, closeT: 0, folded: false, px: null, py: null, g: 0.4, look: 'jarvis', liq: null, follow: true };
   let raf = 0, last = 0;
   const jst = { t: 0, dt: 0.016, mode: null, act: null, actA: 0, open: 1, look: [0, 0], sq: 0, wide: 0, dizzy: 0, happy: 0, sleepy: 0, voice: null, heard: 0 };
 
@@ -420,13 +430,33 @@
       if (st.open) return;
       el.classList.remove('on', 'closing');
       st.liq = null; goo.style.display = 'none'; el.classList.remove('liquid'); st.folded = false; st.minW = 0; st.statusW = null;
-      st.text = ''; st.heard = ''; textEl.textContent = ''; choicesEl.hidden = true; choicesEl.textContent = ''; setMode(null, '');
+      st.text = ''; st.heard = ''; st.follow = true; textEl.textContent = ''; choicesEl.hidden = true; choicesEl.textContent = ''; setMode(null, '');
     }, reduced() ? 200 : 760);
   };
+  // Which ends of the text have more past them (they fade), and whether the newest line is in view.
+  const edges = () => {
+    const below = textEl.scrollHeight - textEl.scrollTop - textEl.clientHeight;
+    textEl.classList.toggle('top', textEl.scrollTop <= 1);
+    textEl.classList.toggle('end', below <= 1);
+    return below;
+  };
+  // Only their own scrolling (wheel, trackpad, touch, keys, the scrollbar) decides it: replacing the text as words
+  // stream in also moves it, and that mustn't count as scrolling up.
+  let userAt = -Infinity;
+  for (const ev of ['wheel', 'touchmove', 'pointerdown', 'keydown']) textEl.addEventListener(ev, () => { userAt = performance.now(); }, { passive: true });
+  textEl.addEventListener('scroll', () => {
+    const below = edges();
+    if (performance.now() - userAt > 800) return;
+    st.follow = below <= 4;
+    st.lingerAt &&= performance.now(); // reading it: it doesn't fold away mid-scroll
+  }, { passive: true });
   // Grows (or shrinks) to fit what's in it, once the text has laid out.
   // One re-fit per frame at most, however fast the words stream in.
   let fitQ = 0;
-  const refit = () => { if (st.open && !fitQ) fitQ = requestAnimationFrame(() => { fitQ = 0; if (st.open) { textEl.classList.toggle('short', textEl.scrollHeight <= MAX_BODY); textEl.scrollTop = textEl.scrollHeight;
+  const refit = () => { if (st.open && !fitQ) fitQ = requestAnimationFrame(() => { fitQ = 0; if (st.open) { textEl.classList.toggle('short', textEl.scrollHeight <= MAX_BODY);
+    // New words keep the newest line in view, unless they've scrolled up to read: then it stays where they are.
+    if (st.follow) textEl.scrollTop = textEl.scrollHeight;
+    edges();
     // The card eases to its new height as lines arrive, instead of jumping a line at a time.
     const body = $('.nc-body'); body.style.setProperty('--bh', `${Math.ceil(textEl.offsetHeight + (choicesEl.hidden ? 0 : choicesEl.offsetHeight + 12) + 30)}px`);
     apply(want()); } }); };
@@ -434,9 +464,11 @@
     const words = st.text || st.heard;
     textEl.classList.toggle('nc-heard', !st.text && !!st.heard);
     // One block per line, so a line in Arabic runs right to left and lines in English stay left to right.
+    const keep = textEl.scrollTop;
     textEl.replaceChildren(...words.replace(/\*\*|__|`|^#+\s*/gm, '').split('\n').map((ln) => {
       const d = document.createElement('div'); d.className = 'nc-line'; d.dir = 'auto'; d.textContent = ln || '\u200b'; return d;
     }));
+    if (!st.follow) textEl.scrollTop = keep; // scrolled up to read: new words don't move it
     refit();
   };
   // It takes clicks only while it has buttons or something to read (hovering keeps it open).
@@ -725,7 +757,7 @@
   // ---------- API ----------
   // A new turn starts clean: anything left from the last one (a reply still lingering, or one folding away) goes.
   const fresh = () => {
-    st.text = ''; st.heard = ''; st.prompt = null; st.folded = false; st.lingerAt = 0; st.speech = null; st.minW = 0; st.statusW = null;
+    st.text = ''; st.heard = ''; st.prompt = null; st.folded = false; st.lingerAt = 0; st.speech = null; st.minW = 0; st.statusW = null; st.follow = true;
     textEl.textContent = ''; choicesEl.hidden = true; choicesEl.textContent = '';
     if (st.open) refit();
   };

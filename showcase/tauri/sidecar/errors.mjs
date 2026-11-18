@@ -46,6 +46,8 @@ const AREAS = {
       ['E26', /model_not_found|model.{0,40}(?:not found|does not exist|not available|not supported)/i, () => "That model isn't available. Pick another one.", false, 'model'],
       ['E27', /overloaded|\b5(?:0[0234]|29)\b|service unavailable|bad gateway|internal server error/i, (c) => `${c.who} is having trouble right now. Try again soon.`],
       ['E28', NET, (c) => `Can't reach ${c.who}. Check your internet.`],
+      // The provider's own filter cut the answer off (Anthropic: "Output blocked by content filtering policy").
+      ['E29', /content.?filter|content (?:management )?policy|blocked by .{0,30}(?:filter|policy)/i, (c) => `${c.who}'s filter stopped that answer. Ask another way.`],
     ],
   },
   key: {

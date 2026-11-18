@@ -16,8 +16,8 @@ assert.ok(!/Ask About an Area|Wake word|Voice Control|Cursor, a little arrow/.te
 assert.match(linux, /AppIndicator extension/);
 assert.match(linux, /installs? by themselves when Roamies runs as an AppImage/);
 assert.ok(!/Wake word/.test(linux), 'the wake word is Mac only');
-// The settings pages as the panel names them (Speaking, Listening, Shortcuts, Routines, General since the split).
-assert.match(mac, /Speaking \(Replies:.*Listening \(Voice Control.*Shortcuts \(.*Routines \(Morning Briefing.*General \(Sound Effects/);
+// The settings pages as the panel names them (Speaking, Listening, Shortcuts, General since the split; Routines is an Abilities tab).
+assert.match(mac, /Speaking \(Replies:.*Listening \(Voice Control.*Shortcuts \(.*General \(Sound Effects/);
 assert.match(linux, /Shortcuts \(the commands to bind/, 'no global keys there: the commands to bind');
 for (const t of [mac, win, linux]) assert.ok(!/Behavior \(|, Voice \(/.test(t), 'no old page names');
 // The Model page's local servers (#63, #66): Ollama, LM Studio and any other server, as the panel names them.
@@ -28,3 +28,14 @@ for (const t of [mac, win, linux]) {
   assert.ok(!/\$\{|undefined/.test(t), 'every part is filled in');
 }
 console.log('about tests: passed');
+// Scheduled jobs, skills and connections: one Abilities page with a tab each, and that they're made by asking.
+for (const t of [mac, win, linux]) {
+  assert.match(t, /Memory: two tabs, What I Remember[^]*and Commitments \(/);
+  assert.match(t, /Abilities: three tabs, Skills \(how-tos you learned, each with View[^]*Learn Skills on the General page[^]*Connections \([^]*and Routines \(Morning Briefing/);
+  assert.ok(!/, (Routines|Connections) \(/.test(t.slice(t.indexOf('Then the settings pages'))), 'not settings pages any more');
+  assert.match(t, /Scheduled Jobs: work a background agent does at set times, made by asking you \(schedule_job\)[^]*Run Now, Pause or Resume, and Remove/);
+  assert.match(t, /Connections \(apps and services you use through their MCP servers[^]*only added by asking you[^]*the button Connect an App/);
+}
+assert.match(mac, /kept in the Keychain\) and Routines/);
+assert.match(win, /kept in the Windows key store\) and Routines/);
+console.log('about (jobs, skills, connections) tests: passed');

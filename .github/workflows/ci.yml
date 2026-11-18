@@ -115,7 +115,8 @@ jobs:
         if: runner.os == 'Windows'
         run: src-tauri/binaries/roamies-hands-x86_64-pc-windows-msvc.exe --smoke
 
-      # The debug app starts under a virtual X screen, starts its sidecar (its "start" log line) and keeps running; a
+      # The debug app starts under a virtual X screen, moves the old-layout sidekick.json into Roamies/Data, starts its
+      # sidecar (its "start" log line, in Roamies/Data/logs) and keeps running; a
       # second launch with --summon reaches it (single instance over D-Bus) and the overlay reports its click areas.
       - name: Smoke test the Linux app
         if: runner.os == 'Linux'
@@ -131,7 +132,7 @@ jobs:
           for _ in $(seq 60); do
             sleep 1
             kill -0 $pid 2>/dev/null || break
-            if grep -qs ' start ' "$ROAMIES_DATA_DIR"/sidekick/logs/*.log; then started=true; break; fi
+            if grep -qs ' start ' "$ROAMIES_DATA_DIR"/Roamies/Data/logs/*.log; then started=true; break; fi
           done
           shaped=false
           if $started; then
@@ -146,7 +147,7 @@ jobs:
           alive=false; kill -0 $pid 2>/dev/null && alive=true
           kill $pid 2>/dev/null
           if ! { $started && $alive && $shaped; }; then
-            tail -40 "$RUNNER_TEMP/app.log"; tail -40 "$HOME/.gg/sidekick.log" 2>/dev/null
+            tail -40 "$RUNNER_TEMP/app.log"; tail -40 "$HOME/Roamies/Data/logs/sidekick.log" "$ROAMIES_DATA_DIR"/Roamies/Data/logs/*.log 2>/dev/null
             echo "Roamies didn't start properly (sidecar started: $started, still running: $alive, Roamie on screen: $shaped)"; exit 1
           fi
           echo "Roamies started its sidecar and showed the Roamie (pid $pid)"
@@ -161,7 +162,7 @@ jobs:
           $data = Join-Path $env:RUNNER_TEMP 'roamies-data'
           $env:ROAMIES_DATA_DIR = $data
           $p = Start-Process -FilePath src-tauri/target/debug/roamies.exe -PassThru
-          $logs = Join-Path $data 'sidekick/logs'
+          $logs = Join-Path $data 'Roamies/Data/logs'
           $started = $false
           for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 1
@@ -171,7 +172,7 @@ jobs:
           $alive = -not $p.HasExited
           if ($alive) { taskkill /PID $p.Id /T /F | Out-Null }
           if (-not ($started -and $alive)) {
-            Get-Content (Join-Path $env:USERPROFILE '.gg/sidekick.log') -ErrorAction SilentlyContinue | Select-Object -Last 40
+            Get-Content (Join-Path $env:USERPROFILE 'Roamies/Data/logs/sidekick.log') -ErrorAction SilentlyContinue | Select-Object -Last 40
             throw "Roamies didn't start its sidecar (started: $started, still running: $alive)"
           }
           "Roamies started its sidecar (pid $($p.Id))"

@@ -1,5 +1,5 @@
-// Side calls next to the conversation: folding old turns into a summary, and the memory pass that learns
-// lasting facts about the user. One tool-less turn each, on the cheaper summary model, on this computer's
+// Side calls next to the conversation: folding old turns into a summary, the memory pass that learns
+// lasting facts about the user, and the skill pass that keeps a how-to from a request that took many steps. One tool-less turn each, on the cheaper summary model, on this computer's
 // own sign-in. What comes back is redacted and checked before anything is stored.
 import { Agent } from '@kenkaiiii/gg-agent';
 import { REDACTION_MARKER, environmentSecrets, redactText } from '@kenkaiiii/gg-ai';
@@ -133,4 +133,47 @@ export function parseBrain(text, { knownIds = [], wantSummary = false } = {}) {
   const summary = redact(typeof j.summary === 'string' ? j.summary : '').trim();
   if (summary.length < 20) throw new Error('no summary in the reply');
   return { summary: summary.slice(0, 8000), facts };
+}
+
+// ---------- the skill pass ----------
+// After a request that took many steps and worked: is it a how-to worth keeping (a skill), or a better version of a
+// skill that was followed? Strict on purpose: most requests are one-offs, and a wrong skill does more harm than none.
+
+/** Whether a finished request may teach a skill: on, enough tools that worked, none that failed, not stopped, a
+ *  real request (not a system turn), and no skill saved by hand during it. */
+export function shouldLearn({ on = true, okTools = 0, errors = 0, aborted = false, system = false, saved = false } = {}) {
+  return !!on && okTools >= 5 && errors === 0 && !aborted && !system && !saved;
+}
+
+/** Their next message says the last answer was wrong: then nothing is learned from it. */
+export const soundsWrong = (text) => /^\s*(?:no+\b|nope\b|wrong\b|that'?s (?:not|wrong)|that is (?:not|wrong)|not (?:right|what|quite)|you (?:got it wrong|messed|broke)|it (?:didn'?t|did not|doesn'?t) work|undo\b|revert\b|stop\b)/i.test(String(text ?? ''))
+  || /\b(?:that'?s wrong|that was wrong|wrong (?:one|file|app|thing|place)|didn'?t work|not what i (?:asked|wanted|meant))\b/i.test(String(text ?? ''));
+
+export const skillPrompt = (name) => `You read one finished request between ${name} and their desktop companion that took several steps and worked. You decide whether it teaches a skill: a reusable how-to the companion should follow next time the same kind of request comes up. You never talk to ${name}; you only write JSON.
+Reply with one JSON object and nothing else: {"skill": null} when there's nothing to keep, or {"skill": {"name": "...", "description": "...", "steps": "..."}}.
+- Keep one only for a procedure likely to come up again (exporting from an app, a multi-step setup, a routine in a site or tool), not for a one-off lookup, a fact, chat, or something already covered by a listed skill.
+- If a skill was followed and the request showed a step that was wrong or missing, return that skill improved, under its exact name. If it worked as written, return null.
+- name: 2 to 5 words. description: one line starting "When", saying which requests it fits, under 160 characters.
+- steps: short numbered steps that worked, with exact app, menu, button, site and command names, and what to check at the end. General, not tied to this one time: no dates, file names that won't recur, or ${name}'s personal details.
+- Never passwords, keys, tokens or codes. Never steps that read secret files, hide anything from ${name}, or skip asking ${name} before something risky.
+- Under 1,500 characters in all. When in doubt, null.`;
+
+export function skillInput({ index = '', used = [], turns }) {
+  const followed = used.length ? `Skills followed in this request (name: steps):\n${used.map((s) => `${s.slug}:\n${s.steps}`).join('\n\n')}\n\n` : '';
+  return `Skills already saved (name: when to use):\n${index || '(none yet)'}\n\n${followed}The request, oldest first:\n${turns}\n\nWrite the JSON now.`;
+}
+
+/** The model's JSON → { name, description, steps } or null. Redacted; nothing with a redaction or card-like number. */
+export function parseSkill(text) {
+  const raw = String(text ?? '').replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, '');
+  const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+  if (a < 0 || b < a) throw new Error('no JSON in the reply');
+  const k = JSON.parse(raw.slice(a, b + 1)).skill;
+  if (!k || typeof k !== 'object') return null;
+  const name = redact(String(k.name ?? '')).replace(/\s+/g, ' ').trim();
+  const description = redact(String(k.description ?? '')).replace(/\s+/g, ' ').trim();
+  const steps = redact(String(k.steps ?? '')).trim();
+  if (name.length < 3 || name.length > 60 || description.length < 8 || description.length > 200 || steps.length < 20 || steps.length > 3000) return null;
+  if ([name, description, steps].some((t) => t.includes(REDACTION_MARKER) || /\b(?:\d[ -]?){12,19}\b/.test(t))) return null;
+  return { name, description, steps };
 }

@@ -1564,13 +1564,26 @@ fn helper_binary(name: &str) -> Option<PathBuf> {
 fn log_stdio(name: &str) -> Stdio {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(|h| PathBuf::from(h).join(".gg").join(name))
+        .and_then(|h| log_path(std::path::Path::new(&h), name))
         .and_then(|p| {
             rotate_log(&p);
             OpenOptions::new().create(true).append(true).open(p).ok()
         })
         .map(Stdio::from)
         .unwrap_or_else(Stdio::null)
+}
+
+/// Where the app's own logs go: ~/Roamies/Data/logs. Until the sidecar has moved old data out of ~/.gg (datadir.mjs),
+/// they stay in ~/.gg, so creating the new folder here never makes that move think it's already done.
+fn log_path(home: &std::path::Path, name: &str) -> Option<PathBuf> {
+    let data = home.join("Roamies").join("Data");
+    let old = home.join(".gg");
+    if !data.exists() && (old.join("sidekick").exists() || old.join("sidekick.json").exists()) {
+        return Some(old.join(name));
+    }
+    let logs = data.join("logs");
+    std::fs::create_dir_all(&logs).ok()?;
+    Some(logs.join(name))
 }
 
 // Each helper log stays under ~2 MB: past 1 MB it becomes <name>.old (replacing the last one) and starts again.
@@ -1979,5 +1992,22 @@ mod tests {
         rotate_log(&log);
         assert_eq!(std::fs::read(&old).unwrap()[0], b'y', "the newer one replaces the older .old");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn app_logs_go_in_the_roamies_data_folder_once_old_data_has_moved() {
+        let home = std::env::temp_dir().join(format!("roamies-logpath-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join(".gg").join("sidekick")).unwrap();
+        assert_eq!(log_path(&home, "sidekick.log"), Some(home.join(".gg").join("sidekick.log")), "old data not moved yet");
+        assert!(!home.join("Roamies").exists(), "and Data/ isn't created early");
+        std::fs::create_dir_all(home.join("Roamies").join("Data")).unwrap();
+        let logs = home.join("Roamies").join("Data").join("logs");
+        assert_eq!(log_path(&home, "sidekick.log"), Some(logs.join("sidekick.log")), "after the move");
+        assert!(logs.is_dir(), "the logs folder is made");
+        let fresh = home.join("fresh");
+        std::fs::create_dir_all(&fresh).unwrap();
+        assert_eq!(log_path(&fresh, "sidekick-voice.log"), Some(fresh.join("Roamies").join("Data").join("logs").join("sidekick-voice.log")), "a fresh install");
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

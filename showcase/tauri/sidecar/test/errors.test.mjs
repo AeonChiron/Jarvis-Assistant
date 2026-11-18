@@ -96,6 +96,8 @@ const CASES = [
   ['reply', fetchFailed, 'Kimi (Moonshot)', "Can't reach Kimi (Moonshot). Check your internet."],
   ['reply', new Error('Claude Code is updating. Ask me again in a minute.'), 'Anthropic', 'Claude Code is updating. Ask me again in a minute.'],
   ['reply', new Error("Claude Code didn't update: fetch failed"), 'Anthropic', "Can't reach Anthropic. Check your internet."],
+  ['reply', new Error('API Error: Output blocked by content filtering policy'), 'Anthropic', "Anthropic's filter stopped that answer. Ask another way."],
+  ['reply', new Error('finish_reason: content_filter'), 'OpenAI', "OpenAI's filter stopped that answer. Ask another way."],
   ['key', new Error('keychain unavailable'), 'x', "Keychain didn't save the key. Try again.", 'Keychain'],
   ['key', new Error("the keyring didn't answer (Cannot autolaunch D-Bus); a keyring app such as GNOME Keyring or KWallet needs to be running"), 'x', "Keyring didn't save the key. Try again.", 'keyring'],
   ['key', new Error('Windows could not protect the key'), 'x', "The key didn't save safely. Try again."],
