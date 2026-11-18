@@ -6,12 +6,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { pickNotch } from '../notch.mjs';
 
-assert.equal(pickNotch({ mac: true, notchScreen: true, pick: undefined }), 'off', 'off until picked');
-assert.equal(pickNotch({ mac: true, notchScreen: true, pick: 'drop' }), 'drop');
-assert.equal(pickNotch({ mac: true, notchScreen: true, pick: 'spread' }), 'spread');
-assert.equal(pickNotch({ mac: true, notchScreen: false, pick: 'drop' }), 'off', 'no notched screen');
-assert.equal(pickNotch({ mac: false, notchScreen: true, pick: 'drop' }), 'off', 'not a Mac');
-assert.equal(pickNotch({ mac: true, notchScreen: true, pick: 'nonsense' }), 'off');
+assert.equal(pickNotch({ notchScreen: true, pick: undefined }), 'off', 'off until picked');
+assert.equal(pickNotch({ notchScreen: true, pick: 'drop' }), 'drop');
+assert.equal(pickNotch({ notchScreen: true, pick: 'spread' }), 'spread');
+// The capsule comes to Windows, Linux and Macs without a notch; the notch style needs a notch, else it's the capsule.
+assert.equal(pickNotch({ notchScreen: false, pick: 'drop' }), 'drop', 'no notched screen: the capsule still');
+assert.equal(pickNotch({ notchScreen: false, pick: 'spread' }), 'drop', 'no notch to widen out of');
+assert.equal(pickNotch({ notchScreen: false, pick: undefined }), 'off');
+assert.equal(pickNotch({ notchScreen: true, pick: 'nonsense' }), 'off');
 
 // A stand-in DOM: every element answers anything, and covers the box 0..500 x 0..60.
 const noop = () => {};
@@ -81,6 +83,7 @@ flush();
 assert.equal(sr.textContent, 'Run npm test?');
 assert.equal(R.notchHit(100, 20), true, 'Allow buttons take clicks');
 assert.equal(R.notchHit(900, 20), false, 'outside it, never');
+assert.equal(R.notchTakes(), true, 'Linux gets its box as a click area while it has buttons');
 // A line said while it's closed ("I heard you…") is measured once it's open, so its card fits it (it kept the last
 // reply's height, and lost its bottom padding).
 R.notch.close(); flush(); frames();

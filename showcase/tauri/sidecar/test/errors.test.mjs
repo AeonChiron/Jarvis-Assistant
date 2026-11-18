@@ -98,6 +98,12 @@ const CASES = [
   ['reply', new Error("Claude Code didn't update: fetch failed"), 'Anthropic', "Can't reach Anthropic. Check your internet."],
   ['reply', new Error('API Error: Output blocked by content filtering policy'), 'Anthropic', "Anthropic's filter stopped that answer. Ask another way."],
   ['reply', new Error('finish_reason: content_filter'), 'OpenAI', "OpenAI's filter stopped that answer. Ask another way."],
+  // #107: a model on this computer that didn't load was "Something went wrong (E20)", or "check your internet".
+  ['reply', new Error('400 No models loaded. Please load a model in the developer page or use the `lms load` command.'), 'Local', "The model didn't load. Check its app or pick a smaller one."],
+  ['reply', new Error('500 model requires more system memory (9.1 GiB) than is available (4.2 GiB)'), 'Local', "The model didn't load. Check its app or pick a smaller one."],
+  ['reply', new Error('500 timed out waiting for llama runner to start - progress 0.00'), 'Local', "The model didn't load. Check its app or pick a smaller one."],
+  ['reply', new Error('CUDA error: out of memory'), 'Local', "The model didn't load. Check its app or pick a smaller one."],
+  ['reply', new Error('400 the request exceeds the available context size, try increasing it'), 'Local', 'This chat got too long. Start a new one.'],
   ['key', new Error('keychain unavailable'), 'x', "Keychain didn't save the key. Try again.", 'Keychain'],
   ['key', new Error("the keyring didn't answer (Cannot autolaunch D-Bus); a keyring app such as GNOME Keyring or KWallet needs to be running"), 'x', "Keyring didn't save the key. Try again.", 'keyring'],
   ['key', new Error('Windows could not protect the key'), 'x', "The key didn't save safely. Try again."],

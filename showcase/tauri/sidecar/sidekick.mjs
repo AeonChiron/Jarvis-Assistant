@@ -54,7 +54,7 @@ import { GEMINI_CHOICES, GEMINI_DEFAULT_VOICE, GEMINI_LOOK_VOICES, GEMINI_MODEL,
 import { createSecrets, retryLoad, runInput } from './secrets.mjs';
 import { showTrayIcon } from './wintray.mjs';
 import { createActivity } from './activity.mjs';
-import { canCircle, canSnap, cleanMics, talkChords, hasHands, hasHotkeys, hasVoice, linuxSession, micTrouble, needsVoiceModel, platformLine, samePair, seesPointer, writeChord, writeChords } from './platform.mjs';
+import { canCircle, canSnap, cleanMics, talkChords, hasHands, hasHotkeys, hasVoice, hasWakeWord, linuxSession, micTrouble, needsVoiceModel, platformLine, samePair, seesPointer, writeChord, writeChords } from './platform.mjs';
 import { accountKeys, fallbackModel, keyCards, keyKinds, seesImages, signInCards } from './providers.mjs';
 import { OLLAMA, connectLocal, contextNote, downNote, forgetLocal, isSmallModel, newServer, noModelsNote, serverFor, serverList, syncLocal as syncServers, withWindow } from './local.mjs';
 import { activityLogs, buildReport, redact, reportDir, reportName, reveal, run, scrubConfig, tail } from './diagnostics.mjs';
@@ -126,7 +126,7 @@ const DEFAULTS = {
   backups: false, // the master switch for backup models when one is at its limit or unavailable
   fallbacks: ['', ''], // backup models, in order, for when the default hits its usage limit (limits.mjs)
   efforts: {}, // how hard each model slot thinks: default, each heavy job, backup1, backup2 ('' = automatic, 'off', or a level)
-  notch: 'off', // where I appear on a Mac with a notch: 'off' (beside the cursor, default), 'drop' (the capsule) or 'spread' (see notchMode)
+  notch: 'off', // where I appear: 'off' (beside the cursor, default), 'drop' (the capsule) or 'spread' (a Mac's notch; see notchMode)
   onboarded: false, onboardStep: 0, filesAsked: false, keys: DEFAULT_KEYS, muteWhileTalking: true, autoListen: false, listenEvery: false, listenSecs: 8, lite: false, wakeWord: false, setupVersion: 0, size: 'default', look: 'classic', introDone: false,
   replies: 'text', // 'voice': spoken (with Fish Audio or Gemini) as well as shown
   speechLang: 'auto', // the language talking is recognised in (macOS): 'auto' follows the Mac's language list, or a locale like 'ar-SA'
@@ -186,6 +186,7 @@ const VOICE_OK = hasVoice(process.platform);
 // Windows and Linux have no on-device speech API apps can use, so voice there runs Parakeet on the PC. Its model
 // is downloaded once: from the setup guide, or the first time voice is used.
 const NEEDS_MODEL = needsVoiceModel(process.platform);
+const WAKE_OK = hasWakeWord(process.platform);
 const MODEL_DIR = modelDir();
 const voiceModel = { status: !NEEDS_MODEL || isReady(MODEL_DIR) ? 'ready' : 'missing', done: 0, total: totalBytes(), error: null };
 const voiceReady = () => voiceModel.status === 'ready';
@@ -350,10 +351,10 @@ const sendKeys = () => send({ type: 'keybinds', ...keys(), write: HOTKEYS_OK ? k
 const talkHow = () => (HOTKEYS_OK ? `Hold ${talkWords().replace('+', ' and ')}` : 'Press your talk shortcut');
 const talkHowLong = () => (HOTKEYS_OK ? `${talkHow()} while you talk` : 'Press your talk shortcut, talk, then press it again (or just pause)');
 const MAC = process.platform === 'darwin';
-// The notch capsule (notch.js in the overlay): only on a Mac with a notched screen (the shell says, notch_screen).
+// The capsule (notch.js in the overlay) on every desktop; its notch style only with a notched screen (macOS, notch_screen).
 // 'off' keeps me beside the cursor.
 let notchScreen = false;
-const notchMode = () => pickNotch({ mac: MAC, notchScreen, pick: config.notch });
+const notchMode = () => pickNotch({ notchScreen, pick: config.notch });
 // Tells the overlay page where I appear (and how the capsule animates).
 const notchUi = () => ui({ kind: 'notch', on: notchMode() !== 'off', style: notchMode() === 'off' ? 'spread' : notchMode() });
 // What the model is told about the computer. "darwin" alone left it using PC habits: Cmd+End (does nothing in Mac
@@ -659,7 +660,7 @@ tools.push({
   name: 'about_roamies',
   description: 'How Roamies works: where it lives, its menus, the panel and each settings page, updates, what to do when something is not working, and who made it. Call it before answering a question about the app.',
   parameters: z.object({}),
-  execute: async () => aboutRoamies({ name: lookName(), looks: LOOKS.map(([, label]) => label), mac: MAC, linux: LINUX, snap: SNAP_OK, pointer: POINTER_OK, voice: VOICE_OK, hotkeys: HOTKEYS_OK }),
+  execute: async () => aboutRoamies({ name: lookName(), looks: LOOKS.map(([, label]) => label), mac: MAC, linux: LINUX, snap: SNAP_OK, pointer: POINTER_OK, voice: VOICE_OK, hotkeys: HOTKEYS_OK, wake: VOICE_OK && WAKE_OK }),
 });
 // Background agents (agents.mjs): each runs in its own process on the model picked when it starts.
 let turnImage = null; // the picture sent with the request being answered, for send_agent's "snap"
@@ -815,7 +816,7 @@ const livePrompt = (context = '') => {
   const open = commitmentsText(), done = doneTodayText(), working = agents.liveText(), scheduled = jobsText(fmtWhen), learned = skillIndex(), linked = mcp.liveText();
   const turn = `Live state (current as of this moment):
 ${frontNow ? `${frontNow}\n` : ''}${focusLine()}${crewLine()}${linked ? `- Connections (connection_tools shows a server's tools, use_connection calls one):\n${linked}\n` : ''}- Editing files, running commands and controlling other apps: ${config.allowActions ? 'ALLOWED' : `switched OFF (tell the user to turn on "Allow File Edits & Commands" on the General page in ${PANEL} if they want it)`}.${config.allowActions && config.skipAllow ? ' Allow prompts are skipped: confirmations go ahead automatically, so be extra careful.' : ''}
-${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? (config.listenEvery ? `. Auto-listen is on for every reply: after each spoken reply the mic opens by itself for ${listenSecs()} seconds, so they can just keep talking` : '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer') : ''}${!MAC ? '. There is no wake word on this computer (it is Mac-only so far): to talk they use the talk keys' : ''}${MAC && config.wakeWord ? `. Wake word is on: ${userName} can also say "Hey ${wakeName(config)}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "Hey ${wakeName(config)}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Listening page in ${PANEL}`})`}.` : ''}
+${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? (config.listenEvery ? `. Auto-listen is on for every reply: after each spoken reply the mic opens by itself for ${listenSecs()} seconds, so they can just keep talking` : '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer') : ''}${!WAKE_OK ? '. There is no wake word on this computer: to talk they use the talk keys' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "Hey ${wakeName(config)}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "Hey ${wakeName(config)}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Listening page in ${PANEL}`})`}.` : ''}
 - Shortcuts: ${HOTKEYS_OK ? `${keys().write ? `type a question to you: a quick tap of ${writeWords()} (press both and let go), which opens a text field beside the cursor (Enter sends, Shift+Enter adds a line, Esc or another tap closes it)` : `the tap that opens a text field to type a question is turned off (the Ask button in ${PANEL} still opens it; the Shortcuts page there turns the tap back on)`}; show or hide you ${keyWords(keys().summon)}` : `on this Wayland desktop no app can have global shortcuts, so ${userName} binds keys to these commands in their desktop's keyboard settings: ${BIND.summon} (show or hide you), ${BIND.ask} (ask you), ${BIND.list} (the list), ${BIND.talk} (talk) and ${BIND.panel} (the panel)`}${SNAP_OK ? `; ask about an area ${keyWords(keys().snap)}` : ''}${CIRCLE_OK ? "; while holding the talk keys, moving the cursor round something circles it (no clicking; it snaps shut with a click when the circle closes, and loose lines don't count) and you'll see what they circled" : ''}${HOTKEYS_OK ? `; show the list ${keyWords(keys().list)}` : ''}.${HANDS_OK ? '' : ' Asking about an area, reading app windows, finding things on screen by their words and working other apps need the Roamies app, which isn\'t running here; draw there with x, y from a screenshot.'}`;
   const memory = `${open ? `Open commitments:\n${open}` : 'No open commitments.'}${done ? `\nDone today (ticked off on the list or by you; still shown struck through until midnight):\n${done}` : ''}
 ${facts.length ? `What you know about ${userName}${total > facts.length ? ` (${facts.length} most relevant of ${total})` : ''}:\n${facts.map((f) => `- ${f.id}: ${f.text}`).join('\n')}` : `You don't know anything lasting about ${userName} yet.`}${working ? `\n${working}` : ''}${scheduled ? `\nScheduled jobs (update_job changes them):\n${scheduled}` : ''}${learned ? `\nSkills you've learned (use_skill reads the steps):\n${learned}` : ''}`;
@@ -1073,6 +1074,26 @@ function onQuizDone(part, picks) {
   logLine('quiz_done', { part });
 }
 const takeQuizNote = () => { const q = quizDone; quizDone = null; return q && Date.now() - q.at < 30 * 60_000 ? q.note : null; };
+// A drawn list changed on its card (#115): a tick is kept as it is; adding or editing an item asks for the words in
+// the ask field (an edit starts from the item's words), then the card gets the new items. What changed rides along
+// with the next message, like a quiz's score.
+let listAsking = false;
+async function onListCard(part, m) {
+  const op = String(m.op ?? '');
+  if (op === 'tick') { if (ink.listCard(part, { op, i: m.i, done: m.done === true })) logLine('list_card', { part, op }); return; }
+  const l = ink.list(part);
+  if (!l || (op !== 'add' && op !== 'edit') || listAsking) return;
+  const i = op === 'edit' && Number.isInteger(m.i) && m.i >= 0 && m.i < l.items.length ? m.i : -1;
+  if (op === 'edit' && i < 0) return;
+  listAsking = true;
+  let typed;
+  try { typed = await ask(op === 'add' ? { prompt: `Add to “${l.title.slice(0, 40)}”`, placeholder: 'A new item' } : { prompt: `Edit the item in “${l.title.slice(0, 40)}”`, placeholder: 'The item', value: l.items[i] }); }
+  finally { listAsking = false; }
+  const items = typed == null ? null : ink.listCard(part, { op, i, text: String(typed).slice(0, 120) });
+  if (!items) return;
+  ui({ kind: 'agent', e: { type: 'list_items', part, items } });
+  logLine('list_card', { part, op });
+}
 // Every way a request is cancelled is logged with what did it, so a reply that never came can be traced.
 function interruptQuietly(by) { if (busy) { quiet = true; logLine('stopped', { by }); controller?.abort(); } }
 
@@ -1324,7 +1345,7 @@ function holdWake(on) {
   if (on) wakeHoldTimer = setTimeout(() => holdWake(busy), 3 * 60_000);
   if (on === wakeHeld) return;
   wakeHeld = on;
-  if (MAC) send({ type: 'wake_hold', on });
+  if (WAKE_OK) send({ type: 'wake_hold', on });
 }
 const listenSecs = () => listenWait(config.listenSecs);
 const autoListenOn = () => VOICE_OK && !!config.voice && !!config.autoListen && voiceReady() && !intro;
@@ -1409,10 +1430,10 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     // The first spoken request of the day carries the morning briefing (brief.mjs).
     const brief = intro ? null : briefNote({ on: !!config.morningBrief, lastDay: config.briefDay, byVoice, todoist: !!config.briefTodoist, canRead: HANDS_OK, name: userName });
     if (brief) { config.briefDay = brief.day; saveConfig(); logLine('brief', { todoist: !!config.briefTodoist && HANDS_OK }); }
-    const quiz = takeQuizNote();
+    const onScreen = [takeQuizNote(), ink.listNote()].filter(Boolean).join(' '); // a quiz's score, lists changed on their cards
     // They spoke first: untold news rides along with their message, so it's never announced separately afterwards.
     const along = desk.along(text, { intro: !!intro, news: !!news, agentish });
-    const stamped = `[${stampNow()}] ${text}${quiz ? `\n(${quiz})` : ''}${along}`;
+    const stamped = `[${stampNow()}] ${text}${onScreen ? `\n(${onScreen})` : ''}${along}`;
     const nudge = !agentish && !intro && !news && !handoff ? delegateNote(text, crewNow(), config.delegate) : '';
     const toAgent = agentish ? `${stamped}\n(They asked for an agent: call send_agent.)` : nudge ? `${stamped}\n${nudge}` : stamped;
     const asked = handoff ? `${toAgent}\n${handoffNote({ userName, assistant: lookName(), reason: handoff.reason, from: handoff.from, kind: handoff.kind, words: turnWords, untilText: handoff.untilText, because: handoff.because })}` : toAgent;
@@ -2185,12 +2206,12 @@ function panelState() {
     geminiModel: config.geminiModel, geminiModels: GEMINI_CHOICES,
     studio: tts().local ? studioState() : null,
     voice: VOICE_OK ? {
-      on: !!config.voice, lang: speechLangId(), langOnline: langInfo && langInfo.id === speechLangId() ? langInfo.online : null, studioSpeak: config.studioSpeak === 'full' || config.studioSpeak === 'medium' ? config.studioSpeak : 'short', keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, listenEvery: !!config.listenEvery, listenSecs: listenSecs(), listenChoices: LISTEN_SECS, snoozeListen: !!config.snoozeListen, wakeWord: !!config.wakeWord, wakeName: wakeName(config),
+      on: !!config.voice, lang: speechLangId(), langOnline: langInfo && langInfo.id === speechLangId() ? langInfo.online : null, studioSpeak: config.studioSpeak === 'full' || config.studioSpeak === 'medium' ? config.studioSpeak : 'short', keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, listenEvery: !!config.listenEvery, listenSecs: listenSecs(), listenChoices: LISTEN_SECS, snoozeListen: !!config.snoozeListen, wake: WAKE_OK, wakeWord: !!config.wakeWord, wakeName: wakeName(config),
       // The mic picker: what the voice helper lists, the pick ('' is automatic) and the mic automatic uses now.
       mics: mics.list, mic: config.mic ?? '', micAuto: mics.list.find((x) => x.id === mics.auto)?.name ?? '',
       download: NEEDS_MODEL && config.voice && !voiceReady() ? { status: voiceModel.status, pct: voiceModel.total ? Math.floor((voiceModel.done / voiceModel.total) * 100) : 0, size: sizeLabel() } : null,
     } : null,
-    sound: !!config.sound, actions: !!config.allowActions, skipAllow: !!config.skipAllow, lite: !!config.lite, hybrid: { on: !!config.hybrid, jobs: JOB_KINDS.map((j) => ({ ...j, value: parseSpec(config.heavy?.[j.kind])?.spec ?? '' })), active: routed?.spec ?? '' }, subagents: { on: !!config.subagents, delegate: DELEGATE_MODES.includes(config.delegate) ? config.delegate : 'ask', crew: SUBAGENTS.map((s) => { const c = activeCrew(config.crew, runnableSpec, hybridActive() ? config.heavy : null).find((x) => x.id === s.id); return { id: s.id, label: s.label, hint: s.hint, value: parseSpec(config.crew?.[s.id])?.spec ?? '', via: c?.via ?? '', uses: c?.spec.spec ?? '' }; }) }, efforts: Object.fromEntries(SLOTS.map((k) => [k, config.efforts?.[k] ?? ''])), fallbacks: { on: !!config.backups, slots: [0, 1].map((i) => parseSpec(config.fallbacks?.[i])?.spec ?? ''), limited: limits.list().filter((l) => !l.key.includes(':') && (isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? l.key, until: l.until })), unavailable: limits.list().filter((l) => !(isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? modelName(l.key.split(':').slice(1).join(':')) ?? l.key, why: becauseOf(l.kind), until: l.until })), using: routed && /^backup/.test(routed.slot ?? '') ? routed.spec : '' }, notch: MAC && notchScreen ? notchMode() : null, brief: { on: !!config.morningBrief, todoist: !!config.briefTodoist, canTodoist: HANDS_OK }, focus: HANDS_OK ? { until: focusBlock?.until ?? null, task: focusBlock?.task ?? '', list: distractionList(), custom: !!config.distractions } : null, sync: { dir: config.syncDir || '', at: syncInfo.at, error: syncInfo.error, paused: !!syncInfo.paused }, gameMode: HANDS_OK ? config.gameSidebar !== false : null,
+    sound: !!config.sound, actions: !!config.allowActions, skipAllow: !!config.skipAllow, lite: !!config.lite, hybrid: { on: !!config.hybrid, jobs: JOB_KINDS.map((j) => ({ ...j, value: parseSpec(config.heavy?.[j.kind])?.spec ?? '' })), active: routed?.spec ?? '' }, subagents: { on: !!config.subagents, delegate: DELEGATE_MODES.includes(config.delegate) ? config.delegate : 'ask', crew: SUBAGENTS.map((s) => { const c = activeCrew(config.crew, runnableSpec, hybridActive() ? config.heavy : null).find((x) => x.id === s.id); return { id: s.id, label: s.label, hint: s.hint, value: parseSpec(config.crew?.[s.id])?.spec ?? '', via: c?.via ?? '', uses: c?.spec.spec ?? '' }; }) }, efforts: Object.fromEntries(SLOTS.map((k) => [k, config.efforts?.[k] ?? ''])), fallbacks: { on: !!config.backups, slots: [0, 1].map((i) => parseSpec(config.fallbacks?.[i])?.spec ?? ''), limited: limits.list().filter((l) => !l.key.includes(':') && (isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? l.key, until: l.until })), unavailable: limits.list().filter((l) => !(isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? modelName(l.key.split(':').slice(1).join(':')) ?? l.key, why: becauseOf(l.kind), until: l.until })), using: routed && /^backup/.test(routed.slot ?? '') ? routed.spec : '' }, notch: notchMode(), notchReal: notchScreen, brief: { on: !!config.morningBrief, todoist: !!config.briefTodoist, canTodoist: HANDS_OK }, focus: HANDS_OK ? { until: focusBlock?.until ?? null, task: focusBlock?.task ?? '', list: distractionList(), custom: !!config.distractions } : null, sync: { dir: config.syncDir || '', at: syncInfo.at, error: syncInfo.error, paused: !!syncInfo.paused }, gameMode: HANDS_OK ? config.gameSidebar !== false : null,
     login: login.supported ? { on: login.on } : null,
     update: { available: update.available, installing: update.installing, checking: update.checking, result: update.result, page: update.page, done: update.done },
     intro: !!intro,
@@ -2205,7 +2226,7 @@ const SPEECH_LANGS = ['auto', 'en-US', 'ar-SA', 'he-IL', 'es-ES', 'fr-FR', 'de-D
 const speechLangId = () => (SPEECH_LANGS.includes(config.speechLang) ? config.speechLang : 'auto');
 let langInfo = null; // what the voice helper settled on for it: { id, engine, online }
 const voiceConfig = () => {
-  send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: MAC && !!config.wakeWord, wakeName: config.wakeName || '', lang: MAC ? speechLangId() : 'auto', ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
+  send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: WAKE_OK && !!config.wakeWord, wakeName: config.wakeName || '', lang: MAC ? speechLangId() : 'auto', ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
   // The native listening pill beside the cursor stays hidden while the notch capsule is where I appear.
   send({ type: 'pill', on: notchMode() === 'off' });
 };
@@ -2508,7 +2529,7 @@ async function onMenu(id, via) {
     config.lite = !config.lite; saveConfig(); agentStale = true; menu();
     say(config.lite ? 'Lite mode on. I\'ll stick to talking, your list, opening things and web search.' : 'Lite mode off. Everything\'s back on.', 'happy');
   }
-  else if ((id === 'notch_off' || id === 'notch_spread' || id === 'notch_drop') && MAC) { config.notch = id.slice(6); saveConfig(); notchUi(); voiceConfig(); menu(); }
+  else if (id === 'notch_off' || id === 'notch_drop' || (id === 'notch_spread' && notchScreen)) { config.notch = id.slice(6); saveConfig(); notchUi(); voiceConfig(); menu(); }
   else if (id === 'actions') {
     config.allowActions = !config.allowActions; agents.setAllow(config.allowActions); saveConfig(); menu(); // live section picks this up
     say(config.allowActions ? 'File edits and commands are on. I promise to be careful.' : 'File edits and commands are off. Hands to myself!', config.allowActions ? 'determined' : 'happy');
@@ -2530,8 +2551,8 @@ async function onMenu(id, via) {
   else if (id === 'listenevery') { config.listenEvery = !config.listenEvery; saveConfig(); agentStale = true; menu(); }
   else if (id.startsWith('listensecs:') && LISTEN_SECS.includes(Number(id.slice(11)))) { config.listenSecs = Number(id.slice(11)); saveConfig(); menu(); }
   else if (id === 'snoozelisten') { config.snoozeListen = !config.snoozeListen; saveConfig(); menu(); }
-  else if (id === 'wakeword' && MAC) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
-  else if (id === 'wakename' && MAC) {
+  else if (id === 'wakeword' && WAKE_OK) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
+  else if (id === 'wakename' && WAKE_OK) {
     const typed = await ask({ prompt: `Wake word: what should come after "Hey"? (now ${wakeName(config)}; leave empty for Roamies)`, placeholder: 'Jarvis' });
     if (typed == null) return;
     const r = cleanWakeName(typed);
@@ -2679,7 +2700,7 @@ function obState() {
     voice: VOICE_OK && config.voice,
     autoListen: !!config.autoListen,
     lite: !!config.lite,
-    wakeWord: MAC && !!config.wakeWord,
+    wakeWord: WAKE_OK && !!config.wakeWord, wakeOk: WAKE_OK,
     voiceModel: NEEDS_MODEL ? { status: voiceModel.status, done: voiceModel.done, total: voiceModel.total, error: voiceModel.error, size: sizeLabel() } : null,
     filesAsked: config.filesAsked,
     look: config.look ?? 'classic',
@@ -2737,7 +2758,7 @@ async function onGuide(m) {
   else if (m.type === 'set_login') setLogin(!!m.on);
   else if (m.type === 'ob_lite') { config.lite = !!m.on; saveConfig(); agentStale = true; menu(); obState(); }
   else if (m.type === 'ob_autolisten') { config.autoListen = !!m.on; saveConfig(); menu(); obState(); }
-  else if (m.type === 'ob_wake' && MAC) { config.wakeWord = !!m.on; saveConfig(); agentStale = true; voiceConfig(); menu(); obState(); }
+  else if (m.type === 'ob_wake' && WAKE_OK) { config.wakeWord = !!m.on; saveConfig(); agentStale = true; voiceConfig(); menu(); obState(); }
   else if (m.type === 'ob_voice_model') getVoiceModel();
   else if (m.type === 'ob_look') setLook(m.look);
   else if (m.type === 'ob_size' && SIZES.some(([s]) => s === m.size)) { config.size = m.size; saveConfig(); ui({ kind: 'size', size: config.size }); menu(); }
@@ -2809,6 +2830,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   }
   else if (m.type === 'ink_pinned') { ink.pinned(String(m.part), m.on === true); logLine('ink_pinned', { on: m.on === true }); } // a card kept on screen until its × (ink.js)
   else if (m.type === 'ink_action') onInkButton(String(m.part));
+  else if (m.type === 'list_card') onListCard(String(m.part), m);
   else if (m.type === 'quiz_done') onQuizDone(String(m.part), Array.isArray(m.picks) ? m.picks.slice(0, 12).map((v) => (Number.isInteger(v) ? v : -1)) : []);
   else if (m.type === 'ink_cleared') { ink.cleared(); endShowcase('gone'); }
   else if (m.type === 'user_click' && Number.isFinite(m.x) && Number.isFinite(m.y)) ink.userClick({ x: m.x, y: m.y, role: String(m.role ?? ''), app: String(m.app ?? ''), acts: m.acts === true });

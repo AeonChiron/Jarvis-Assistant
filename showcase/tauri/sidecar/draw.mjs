@@ -77,7 +77,7 @@ const Mark = z.object({
 });
 // Some models (Gemini Flash-Lite, #81) put a lone mark's fields on its beat or on the call itself instead of in marks,
 // a button's text as label, a card's heading as title: moved where they go before the schema sees them.
-const BEAT_KEYS = new Set(['say', 'marks', 'wait']), CALL_KEYS = new Set(['target', 'beats', 'edit', 'deep']);
+const BEAT_KEYS = new Set(['say', 'marks', 'wait']), CALL_KEYS = new Set(['target', 'beats', 'edit', 'deep', 'keep']);
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const loose = (o, keep) => Object.fromEntries(Object.entries(o).filter(([k]) => !keep.has(k)));
 function tidyMark(m) {
@@ -109,6 +109,7 @@ export const DrawArgs = z.preprocess(tidyDraw, z.object({
   beats: z.array(Beat).max(LIMITS.beats).optional(),
   edit: z.array(Edit).max(20).optional(),
   deep: z.boolean().optional(),
+  keep: z.boolean().optional(),
 }));
 
 const hasAt = (t) => !!t && (t.text != null || t.id != null || (t.x != null && t.y != null));
@@ -356,6 +357,50 @@ export function quizNote(m, picks) {
   const pick = (i) => (Number.isInteger(picks?.[i]) && picks[i] >= 0 && picks[i] < qs[i].options.length ? picks[i] : -1);
   const missed = qs.map((q, i) => (pick(i) === q.right ? null : `${cut(q.text)} (they ${pick(i) < 0 ? 'skipped it' : `picked ${cut(q.options[pick(i)])}`}; the answer is ${cut(q.options[q.right])})`)).filter(Boolean);
   return `They answered the quiz${m.title ? ` ${cut(m.title)}` : ''} on screen by clicking: ${qs.length - missed.length} of ${qs.length} right.${missed.length ? ` Missed: ${missed.join('; ')}.` : ''}`;
+}
+/** Drawn lists the user changes on the card (#115): ticks, added items and edits. They reach the model as one note with
+ *  the next message (note), and the part's description keeps the current items. */
+export const LIST_MAX = 30;
+export function createLists() {
+  const all = new Map(); // part → { title, items, done, base: done when last told, log: [added / changed], closed }
+  const cut = (t) => `“${String(t).replace(/\s+/g, ' ').slice(0, 120)}”`;
+  const pending = (l) => l.log.length > 0 || l.done.some((d, i) => d !== !!l.base[i]);
+  const live = (part) => { const l = all.get(part); return l && !l.closed ? l : null; };
+  const drop = (part) => { const l = all.get(part); if (!l) return; if (pending(l)) l.closed = true; else all.delete(part); };
+  return {
+    set(part, m) { const items = (m.items ?? []).map(String); all.set(part, { title: String(m.title || 'list'), items, done: items.map(() => false), base: [], log: [] }); },
+    get: (part) => { const l = live(part); return l ? { title: l.title, items: [...l.items], done: [...l.done] } : null; },
+    /** Closed or cleared: what they changed before that is still told once. */
+    drop,
+    clear(keep = () => false) { for (const id of [...all.keys()]) if (!keep(id)) drop(id); },
+    /** A change from the card: { op: 'tick', i, done }, { op: 'add', text } or { op: 'edit', i, text }. Returns the
+     *  items after it, or null when nothing changed (no such list or item, empty or unchanged words, list full). */
+    change(part, { op, i, done, text } = {}) {
+      const l = live(part);
+      if (!l) return null;
+      const t = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 120), has = Number.isInteger(i) && i >= 0 && i < l.items.length;
+      if (op === 'tick' && has) l.done[i] = !!done;
+      else if (op === 'add' && t && l.items.length < LIST_MAX) { l.items.push(t); l.done.push(false); l.log.push(`added ${cut(t)}`); }
+      else if (op === 'edit' && has && t && t !== l.items[i]) { l.log.push(`changed ${cut(l.items[i])} to ${cut(t)}`); l.items[i] = t; }
+      else return null;
+      return [...l.items];
+    },
+    /** The part's description with what's on it now: list “Groceries” (milk, done; eggs). */
+    desc(part) { const l = live(part); return l ? `list ${cut(l.title.slice(0, 40))} (${l.items.map((it, k) => `${String(it).slice(0, 40)}${l.done[k] ? ', done' : ''}`).join('; ')})` : null; },
+    /** What they changed on screen since this was last read, in words for the model; null when nothing did. */
+    note() {
+      const out = [];
+      for (const [part, l] of all) {
+        if (!pending(l)) continue;
+        const off = l.items.filter((_, k) => l.done[k] && !l.base[k]).map(cut), back = l.items.filter((_, k) => !l.done[k] && l.base[k]).map(cut);
+        const what = [off.length ? `ticked off ${off.join(', ')}` : '', back.length ? `unticked ${back.join(', ')}` : '', ...l.log].filter(Boolean);
+        if (what.length) out.push(`They changed the list ${cut(l.title)} on screen: ${what.join('; ')}.`);
+        l.base = [...l.done]; l.log = [];
+        if (l.closed) all.delete(part);
+      }
+      return out.length ? out.join(' ') : null;
+    },
+  };
 }
 const SILENT = new Set(['emote', 'sfx', 'copy', 'open', 'handoff']);
 /** The parts on screen: ids never reused in a conversation, screen marks cleared on their own, cards until closed. */

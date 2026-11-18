@@ -1,4 +1,5 @@
-// The notch capsule: on a Mac, the agent comes out of the camera notch instead of popping up beside the cursor.
+// The notch capsule: the agent comes out of the top of the screen (a Mac's camera notch, where there is one) instead
+// of popping up beside the cursor.
 // A black capsule pours out of the notch (it starts exactly the notch's size, so it reads as the notch itself
 // growing), spreads sideways with a little spring, and drops open when there's something to read. When the turn is
 // over it folds back the same way and disappears into the notch. Inside: a small live JARVIS globe (jarvis.js, the
@@ -734,6 +735,8 @@
     hot(take);
     return take;
   };
+  // Linux takes clicks by region (host.js): the capsule's box, while it has something to click.
+  R.notchTakes = () => st.open && takes();
   R.notchRect = () => {
     if (!st.open) return null;
     const a = el.getBoundingClientRect(), b = drop() && shape === 'full' ? $('.nc-body').getBoundingClientRect() : a;

@@ -622,7 +622,7 @@
     b.fillRect(px - 4, py - 6, 8, 2); b.fillRect(px - 2, py - 4, 4, 4); b.fillRect(px - 5, py, 10, 2); b.fillRect(px - 1, py + 2, 2, 4);
   }
   async function card(m, w, h, inner, o = {}) {
-    const full = h;
+    let full = h;
     h = Math.min(full, maxCardH());
     // The size the assistant chose (draw's card_size): small or large opens zoomed (never past the screen), placed for
     // that size; full opens, then goes full screen. The corner and the full-screen button work as always afterwards.
@@ -689,6 +689,15 @@
         return [...more, ...out, { rect: [x, y, w, h], kind: 'card', part: m.part }];
       },
     });
+    // Taller insides (a list that got an item): the card grows, up to the screen's height and then it scrolls, and moves
+    // up if it would run off the bottom.
+    c.grow = (nh) => {
+      full = nh; h = Math.min(nh, maxCardH()); c.h = h; c.scrollMax = Math.max(0, full - h); c.sy = Math.min(c.sy, c.scrollMax);
+      if (c.p >= 1) c.ch = h;
+      const S = scr(), kk = c.k ?? 1, over = y + c.dy + h * kk + 64 - S[3];
+      if (over > 0 && !c.full) c.dy -= Math.min(over, Math.max(0, y + c.dy - S[1] - 4));
+      touch(1.2);
+    };
     await fly(x, y); sfx('expand');
     await tween(0.45, (u) => { const e = ease(u); c.cw = w * e; c.ch = h * e; penApi()?.set?.(x + c.cw * k, y + c.ch * k); });
     c.p = 1; c.done = now(); touch(1.5); syncClearAll();
@@ -697,6 +706,8 @@
     return c;
   }
   const BODY = `400 13px ${MONO}`, SMALL = `400 11px ${MONO}`;
+  // Drawn checklists that are up, by part: each takes its new items (listItems).
+  const lists = new Map();
   // The tallest a card may be: the screen less its margins and the caption.
   const maxCardH = () => Math.max(160, scr()[3] - scr()[1] - 100);
   // A row of sources: favicon (or a dot) and name, each opening its link.
@@ -827,22 +838,75 @@
         sfx('pip'); moving = true; touch(1);
       };
     },
+    // A checklist: a click on a ring ticks an item off (or back), on its words edits it, and "+ Add" adds one. The
+    // sidecar asks for the words and hears every change (list_card), and sends the new items back (listItems).
     async list(m) {
-      const TITLE = `800 20px ${DOTO}`;
+      const TITLE = `800 20px ${DOTO}`, S = { items: m.items.map(String), done: m.items.map(() => false), born: [], ver: m.items.map(() => 0), down: 0 };
+      const ticked = new Map(), ink = new Map();
       // The whole title and every point in full: 280 wide, wider while a point runs past three lines or it's too tall.
       const lay = (w) => {
-        const title = wrapRows(m.title || 'list', w - 36, TITLE), items = m.items.map((it) => wrapRows(it, w - 58, BODY)), tops = [];
+        const title = wrapRows(m.title || 'list', w - 36, TITLE), items = S.items.map((it) => wrapRows(it, w - 58, BODY)), tops = [];
         let yy = 50 + (title.length - 1) * 24; for (const r of items) { tops.push(yy); yy += r.length * 19 + 11; }
-        return { w, title, items, tops, h: 26 + yy + 6 };
+        return { w, title, items, tops, addY: yy + 2, h: 26 + yy + 2 + 26 + 14 };
       };
       let L = lay(280);
       for (const wide of [360, 440]) if (L.h > maxCardH() || L.items.some((r) => r.length > 3)) L = lay(wide);
-      const { w, title, items, tops, h } = L, rings = items.map(() => loop(0, 0, 12, 12, { pad: 0, r: 6, over: 0.1 }));
-      await card(m, w, h, function (b, l, t, x, y, age) {
+      // Each item's ring, tick and strike-through, made once (and again when its words change) so the ink holds still.
+      const shapes = (i) => {
+        const key = `${i}.${S.ver[i]}`;
+        if (!ink.has(key)) ink.set(key, { ring: loop(0, 0, 12, 12, { pad: 0, r: 6, over: 0.1 }), check: handLine([2.5, 6], [5.5, 9.5], { jitter: 0.3 }).concat(handLine([5.5, 9.5], [10.5, 2.5], { jitter: 0.3 })),
+          strikes: L.items[i].map((ln) => handLine([0, 0], [textW(ln, BODY) + 4, 0], { jitter: 0.6 })) });
+        return [key, ink.get(key)];
+      };
+      let hits = [];
+      const c = await card(m, L.w, L.h, function (b, l, t, x, y, age) {
+        hits = [];
+        const { w, title, items, tops } = L;
         title.forEach((r, i) => typed(b, r, x + 18, y + 30 + i * 24, TITLE, TEXT, (age - i * 0.2) / 0.4));
-        items.forEach((r, i) => { const a = age - 0.3 - i * 0.26; if (a <= 0) return; pen(b, l, this, rings[i].map(([px, py]) => [px + x + 18, py + y + tops[i]]), clamp(a / 0.3, 0, 1), this.color, { key: 'r' + i, w: 2.4 }); wrapped(b, r, x + 40, y + tops[i] + 11, 19, BODY, TEXT, a / 0.4); });
+        items.forEach((r, i) => {
+          const a = S.born[i] != null ? t - S.born[i] : age - 0.3 - i * 0.26;
+          if (a <= 0) return;
+          const top = y + tops[i], rh = r.length * 19, done = S.done[i], [key, sh] = shapes(i), tick = `t${i}`, edit = `e${i}`;
+          if (this.hoverId === tick || this.hoverId === edit) { b.fillStyle = rgba(ACC, 0.07); b.fillRect(this.hoverId === tick ? x + 8 : x + 34, top - 5, this.hoverId === tick ? 30 : w - 42, rh + 6); }
+          pen(b, l, this, placed(this, `r${key}`, sh.ring, x + 18, top), clamp(a / 0.3, 0, 1), done ? MID : this.color, { key: `r${key}`, w: 2.4 });
+          wrapped(b, r, x + 40, top + 11, 19, BODY, done ? DIM : TEXT, a / 0.4);
+          if (done) {
+            const u = ticked.has(i) ? t - ticked.get(i) : 9;
+            pen(b, l, this, placed(this, `c${key}`, sh.check, x + 18, top), clamp(u / 0.2, 0, 1), HOT, { key: `c${key}`, w: 2.2 });
+            sh.strikes.forEach((st, k) => pen(b, l, this, placed(this, `s${key}.${k}`, st, x + 38, top + 6 + k * 19), clamp((u - 0.1 - k * 0.2) / 0.3, 0, 1), MID, { key: `s${key}.${k}`, w: 1.8 }));
+          }
+          hits.push({ rect: [x + 8, top - 5, 30, rh + 6], kind: 'pick', id: tick }, { rect: [x + 38, top - 5, w - 46, rh + 6], kind: 'pick', id: edit });
+        });
+        const a = age - 0.3 - S.items.length * 0.26, bw = Math.round(textW('+ Add', CHIP()) + 30), br = [x + 18, y + L.addY, bw, 26];
+        if (a <= 0) return;
+        chip(b, br[0], br[1], br[2], br[3], '+ Add', a, { hover: this.hoverId === 'add', down: now() - S.down < 0.15 });
+        hits.push({ rect: br, kind: 'pick', id: 'add' });
       }, { title: 'list' });
-      for (let i = 0; i < items.length; i++) { touch(0.5); await sleep(260); }
+      c.more = () => hits.map((q) => ({ ...q, part: m.part }));
+      c.keep = true;
+      c.pick = (id) => {
+        const send = (o) => R.ink.send?.({ type: 'list_card', part: m.part, ...o });
+        if (id === 'add') { S.down = now(); sfx('pip'); send({ op: 'add' }); return; }
+        const i = Number(String(id).slice(1));
+        if (!(i >= 0 && i < S.items.length)) return;
+        if (id[0] === 'e') { sfx('pip'); send({ op: 'edit', i }); return; }
+        S.done[i] = !S.done[i];
+        if (S.done[i]) { ticked.set(i, now()); sfx('done'); } else { ticked.delete(i); sfx('tick'); }
+        send({ op: 'tick', i, done: S.done[i] });
+        touch(1.5);
+      };
+      // The sidecar's items after an add or an edit: new ones are written in, changed ones get fresh ink.
+      lists.set(m.part, (items) => {
+        if (!c.alive) { lists.delete(m.part); return; }
+        items.forEach((it, i) => {
+          if (i >= S.items.length) { S.born[i] = now(); S.done[i] = false; S.ver[i] = 0; sfx('pip'); } else if (it !== S.items[i]) S.ver[i]++;
+        });
+        S.items = items.slice(); S.done.length = items.length;
+        L = lay(L.w);
+        c.__ol = {}; c.__at = {};
+        c.grow(L.h);
+      });
+      for (let i = 0; i < S.items.length; i++) { touch(0.5); await sleep(260); }
     },
     async clip(m) {
       const TF = `800 18px ${DOTO}`, CF = `400 12px ${MONO}`;
@@ -2289,10 +2353,10 @@
     // A segment of a drawing from the sidecar: { id, seg, beats, edits, last, win, busy }.
     play(e) { G.q.push(e); pump(); },
     // { screen: true } clears the screen marks (cards stay); otherwise everything but the reminders card, which
-    // { all: true } (Esc) takes too. stop: also ends what's playing.
+    // { all: true } (Esc) takes too. parts: these go as well (a cancelled request's cards). stop: also ends what's playing.
     clear(e = {}) {
       if (e.stop || !e.screen) stop();
-      const gone = marks.filter((m) => m.alive && !m.pinned && (e.screen ? m.screen : e.all || !m.local));
+      const gone = marks.filter((m) => m.alive && !m.pinned && (e.parts?.includes(m.part) || (e.screen ? m.screen : e.all || !m.local)));
       fadeOut(gone);
     },
     // Another window came to the front, or that window moved or closed: the drawing no longer sits on what it was
@@ -2316,5 +2380,7 @@
     // A rect from the helpers (screen points) in this overlay's coordinates, for game mode (sidebar.js).
     toLocal: (r) => locRect(r),
     sidebarChanged: () => touch(0.5),
+    // A drawn list's items after the user added or edited one (the sidecar sends them back).
+    listItems(part, items) { if (Array.isArray(items)) lists.get(part)?.(items.map(String)); },
   };
 })();

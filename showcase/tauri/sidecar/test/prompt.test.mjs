@@ -68,8 +68,8 @@ assert.match(drawText, /their score comes to you with their next message, so say
 assert.match(drawText, /your reply after draw never repeats or rephrases it \(no restating the steps\)/, 'beat lines are not said again');
 // A quiz answered on screen reaches the model with the next message, once, and never from an older conversation.
 assert.match(side, /m\.type === 'quiz_done'\) onQuizDone\(/, 'the overlay reports a finished quiz');
-assert.match(side, /const quiz = takeQuizNote\(\);[^]{0,400}?const stamped = `\[\$\{stampNow\(\)\}\] \$\{text\}\$\{quiz \? `\\n\(\$\{quiz\}\)` : ''\}/, 'the score rides along with their next message');
-assert.match(side, /const stamped = [^\n]*\$\{quiz \? `\\n\(\$\{quiz\}\)` : ''\}\$\{along\}`;/, "untold agent news rides along with their message");
+assert.match(side, /const onScreen = \[takeQuizNote\(\), ink\.listNote\(\)\]\.filter\(Boolean\)\.join\(' '\);[^]{0,400}?const stamped = `\[\$\{stampNow\(\)\}\] \$\{text\}\$\{onScreen \? `\\n\(\$\{onScreen\}\)` : ''\}/, 'the score, and lists changed on their cards (#115), ride along with their next message');
+assert.match(side, /const stamped = [^\n]*\$\{onScreen \? `\\n\(\$\{onScreen\}\)` : ''\}\$\{along\}`;/, "untold agent news rides along with their message");
 assert.match(side, /newSession\(config\.provider, config\.model\); liveBlocks\.clear\(\); agent = null; pendingFold = null; lastInput = null; quizDone = null;/, 'a new conversation drops it');
 // Background agents: one short paragraph says when to start one (only when asked, or after offering long hands-off
 // work), that its brief is complete, and that a launch is the whole reply; their state rides in the memory section.

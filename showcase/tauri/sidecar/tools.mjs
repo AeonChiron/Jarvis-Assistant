@@ -9,7 +9,7 @@ import { createWebFetchTool, createWebSearchTool, runSideWebSearch, runSideWebSe
 import { z } from 'zod';
 import { parseSipsSize, readProblem, rematch, sameBounds, shotFits, shotMap, shotProblem, shotUnits, snapRect, toScreen } from './pointing.mjs';
 import { ASK, BLOCK, checkDrawAction, checkFetch, checkOpen, checkRead, checkWrite, classifyCommand, isRiskyClick, isYes, riskyKind } from './safety.mjs';
-import { CARDS, DrawArgs, LIMITS, checkDraw, createParts, createPhotos, describeParts, faviconFor, pickTextMatch, quizNote, resolveTargets } from './draw.mjs';
+import { CARDS, DrawArgs, LIMITS, checkDraw, createLists, createParts, createPhotos, describeParts, faviconFor, pickTextMatch, quizNote, resolveTargets } from './draw.mjs';
 import { plain } from './intro.mjs';
 import { linuxSession, seesPointer } from './platform.mjs';
 import { addCommitment, forgetFact, getCommitment, parseDue, parseRepeat, repeatLabel, updateCommitment } from './store.mjs';
@@ -397,14 +397,15 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
   const photos = createPhotos();
   const buttons = new Map(); // part id → the button's action, for when it's clicked
   const quizzes = new Map(); // part id → the quiz drawn there, to score what was clicked
+  const lists = createLists(); // part id → a drawn checklist, with what the user changed on it
   // Parts of drawings that go by themselves (the tour, the setup showcase): about no window, so switching windows keeps them.
   const loose = new Set();
   // Cards the user pinned (ink.js): the overlay keeps them through clears and window changes, so they're remembered here too.
   const pinned = new Set();
   const keepPinned = (id) => pinned.has(id);
-  const forgetInk = () => { parts.clear(keepPinned); for (const m of [buttons, quizzes]) for (const id of [...m.keys()]) if (!pinned.has(id)) m.delete(id); for (const id of [...loose]) if (!pinned.has(id)) loose.delete(id); };
+  const forgetInk = () => { parts.clear(keepPinned); lists.clear(keepPinned); for (const m of [buttons, quizzes]) for (const id of [...m.keys()]) if (!pinned.has(id)) m.delete(id); for (const id of [...loose]) if (!pinned.has(id)) loose.delete(id); };
   const windowBound = () => parts.ids.some((p) => !loose.has(p));
-  const ink = { waits: new Map(), turn: -1, active: 0, front: '', win: null, page: '', watch: null, checks: [] };
+  const ink = { waits: new Map(), turn: -1, active: 0, front: '', win: null, page: '', watch: null, checks: [], fresh: new Set() };
   const inkWait = (key, ms, signal) => new Promise((resolve) => {
     const done = (v) => { clearTimeout(t); signal?.removeEventListener('abort', stop); ink.waits.delete(key); resolve(v); };
     const t = setTimeout(() => done('timeout'), ms), stop = () => done('stopped');
@@ -415,6 +416,14 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
   });
   const clearScreenInk = (stop = false) => { parts.clearScreen(); for (const id of buttons.keys()) if (!parts.has(id)) buttons.delete(id); ui({ kind: 'agent', e: { type: 'ink_clear', screen: true, stop } }); };
   const clearAllInk = () => { forgetInk(); ui({ kind: 'agent', e: { type: 'ink_clear' } }); };
+  // Cancelled: what this request drew goes (#113); cards kept from before it (draw keep) stay.
+  const cancelInk = () => {
+    if (!parts.ids.some((p) => !ink.fresh.has(p) && !pinned.has(p))) return clearAllInk();
+    const ids = [...ink.fresh].filter((p) => parts.has(p) && !pinned.has(p));
+    for (const p of ids) { parts.remove(p); buttons.delete(p); quizzes.delete(p); lists.drop(p); loose.delete(p); }
+    parts.clearScreen(); for (const p of buttons.keys()) if (!parts.has(p)) buttons.delete(p);
+    ui({ kind: 'agent', e: { type: 'ink_clear', screen: true, stop: true, parts: ids } });
+  };
   // The window a drawing belongs to: the front window's id and place. Its title isn't part of it (a page updating
   // its title, a document being edited, isn't the screen changing).
   // Its rect and app too, so a click can be told to be in it.
@@ -609,17 +618,19 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
     const beats = (args.beats ?? []).map((b) => (POINTER_OK || !b.wait ? b : { ...b, wait: undefined }));
     if (beats.some((b, i) => b !== (args.beats ?? [])[i])) notes.push("This desktop doesn't let Roamies see clicks in other apps, so the beats played one after another instead of waiting for clicks.");
     for (const e of edits) if (e.do !== 'clear' && !parts.has(e.part)) throw new Error(`There's no ${e.part} on screen now${parts.ids.length ? ` (there is: ${parts.describe()})` : ' (nothing is drawn)'}. Draw it again instead.`);
-    // A new drawing in a later request replaces the old one (cards too), unless it's editing what's there.
-    if (ink.turn !== turn && !edits.length && parts.ids.length) clearAllInk();
+    // A new drawing in a later request replaces the old one (cards too), unless it's editing what's there or keeps
+    // the cards (the user asked to keep them up, #113).
+    if (ink.turn !== turn && !edits.length && parts.ids.length) { if (args.keep) clearScreenInk(true); else clearAllInk(); }
+    if (ink.turn !== turn) ink.fresh = new Set();
     ink.turn = turn;
-    for (const e of edits) if (e.do === 'erase') parts.remove(e.part); else if (e.do === 'clear') { parts.clear(); pinned.clear(); }
+    for (const e of edits) if (e.do === 'erase') { parts.remove(e.part); lists.drop(e.part); } else if (e.do === 'clear') { parts.clear(); lists.clear(); pinned.clear(); }
     // One segment per beat: each is sent as soon as its places are found, so the first marks draw while the rest
     // are still being looked up (each lookup is a helper round trip). after: it comes after a click or hover.
     const segs = beats.map((b, i) => ({ from: i, to: i + 1, after: i > 0 && !!beats[i - 1].wait }));
     if (!segs.length) segs.push({ from: 0, to: 0 });
     const drawn = [], shut = [];
     // Cut off (they spoke over it): the overlay stops too, or it keeps the caption up waiting for a click.
-    const stopped = () => { if (ctx?.signal?.aborted) clearAllInk(); return 'Stopped.'; };
+    const stopped = () => { if (ctx?.signal?.aborted) cancelInk(); return 'Stopped.'; };
     // Where there's room for cards: the screen minus the front window; and what's on it, so names avoid covering words.
     const hasCards = beats.some((b) => b.marks.some((m) => CARDS.includes(m.kind)));
     const win = hasCards && HANDS ? (await hands('locate', 'front').catch(() => null))?.window?.bounds ?? null : null;
@@ -645,14 +656,16 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
         // Cancelled while this step's places were looked up: it never shows.
         if (ctx?.signal?.aborted) return stopped();
         const ids = parts.assign(seg);
+        for (const p of ids) ink.fresh.add(p);
         drawn.push(...ids.map((p) => [p, parts.get(p)]));
         if (opts.fade) for (const p of ids) loose.add(p);
         // Only a few cards stay up at once (the overlay closes the oldest as each new one is drawn), so the oldest are
         // forgotten here too. Eight cards at once covered the screen, and the last one landed on top of the first.
         // A deep explanation shows one big card at a time.
-        else for (const p of parts.trimCards(args.deep ? 1 : LIMITS.cardsShown, (q) => loose.has(q) || pinned.has(q))) { shut.push(p); buttons.delete(p); }
+        else for (const p of parts.trimCards(args.deep ? 1 : LIMITS.cardsShown, (q) => loose.has(q) || pinned.has(q))) { shut.push(p); buttons.delete(p); lists.drop(p); }
         for (const b of seg) for (const m of b.marks) if (m.action && m.part) buttons.set(m.part, m.action);
         for (const b of seg) for (const m of b.marks) if (m.kind === 'quiz' && m.part) quizzes.set(m.part, m);
+        for (const b of seg) for (const m of b.marks) if (m.kind === 'list' && m.part) lists.set(m.part, m);
         const out = seg.map((b, j) => ({ ...b, n: sg.from + j + 1, caption: plain(b.say), voiced: !!speak(b.say) }));
         said.push(...out.map((b) => b.caption));
         ui({ kind: 'agent', e: { type: 'draw', id, seg: k, beats: out, edits: k ? [] : edits, last: k === segs.length - 1, win, busy: k ? [] : busy, ...(opts.fade ? { fade: opts.fade } : {}), ...(args.deep ? { deep: true } : {}) } });
@@ -688,18 +701,28 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
   const inkEvents = {
     started: (id, seg) => ink.waits.get(`${id}:start:${seg}`)?.('started'),
     waitDone: (id, beat, result) => ink.waits.get(`${id}:wait:${beat}`)?.(['clicked', 'hovered', 'skipped'].includes(result) ? result : 'skipped'),
-    closed: (part) => { parts.remove(String(part)); buttons.delete(String(part)); loose.delete(String(part)); pinned.delete(String(part)); },
+    closed: (part) => { parts.remove(String(part)); buttons.delete(String(part)); lists.drop(String(part)); loose.delete(String(part)); pinned.delete(String(part)); },
     pinned: (part, on) => { if (!on) pinned.delete(String(part)); else if (parts.has(String(part))) pinned.add(String(part)); },
     button: (part) => buttons.get(String(part)) ?? null,
     // A quiz was answered on screen (the option clicked for each question): how it went, in words for the model.
     quizDone: (part, picks) => quizNote(quizzes.get(String(part)), picks),
+    // A drawn list changed on its card (tick, add, edit): the items after it (null if nothing changed). The part's
+    // description follows, so "On screen now" lists what's really there.
+    list: (part) => lists.get(String(part)),
+    listCard: (part, change) => {
+      const items = lists.change(String(part), change), p = parts.get(String(part));
+      if (items && p) p.desc = lists.desc(String(part));
+      return items;
+    },
+    // What they changed on lists since the last message, once (null if nothing).
+    listNote: () => lists.note(),
     // A request ended: if it drew nothing, the marks from before it are done with.
     endRequest: () => { if (ink.turn !== turn && parts.screenCount) clearScreenInk(); },
     // Stop. Cancelling a request that drew: all of its drawing goes, diagrams and cards too, and the overlay stops
     // playing it. Otherwise (only the voice was still going) the screen marks go and the cards stay.
     stop: (cancelled = false) => {
       for (const done of [...ink.waits.values()]) done('stopped');
-      if (cancelled && ink.turn === turn && parts.ids.length) clearAllInk(); else clearScreenInk(true);
+      if (cancelled && ink.turn === turn && parts.ids.length) cancelInk(); else clearScreenInk(true);
     },
     // The user sent the whole drawing away (Esc): nothing is on screen any more.
     cleared: () => { for (const done of [...ink.waits.values()]) done('stopped'); forgetInk(); },
@@ -844,7 +867,7 @@ beats: [{say, marks, wait?}]. say: one short line, under 20 words, spoken and ca
 Places (at, to, tie), best first: {text: the exact words shown on screen} (exact bounds, scrolls to it; target 'screen' searches every app; also words inside paragraphs, text in images or canvases, and a single character, which matches case); add every: true to mark every place that text appears (each letter s, each mention of a word), one mark per place, and within: {x, y, w, h} (screenshot pixels, x, y the centre) to keep to one part of the screen (every s in one sentence); {id} from read_window, for controls without words; {x, y, w, h} pixels in your latest screenshot, for icons, shapes and areas without words: x, y is the thing's centre, and w, h its whole width and height; the box is then fitted to what's really drawn there, so a close guess is enough.
 Which mark: one control they should click: target (with wait 'click' in a walkthrough); one thing to notice: ring (follows its shape; r sets the corner radius); a small spot or icon: point; a region or panel: frame; key words: underline (outdated ones: strike); right or wrong: check, cross; order of steps: num; a name beside something: label (text) or label on any mark; how two things relate: connect (at → to; flow: true runs moving dots along it, for something that travels or keeps happening); an odd-shaped group: trace (points); scroll here: scroll (dir); one thing above all else: spotlight (sparingly); something to hover: hover with wait 'hover'; big words: write (text, size).
 Walkthroughs ("how do I…"): one beat per step, each a target on that step's control with label and wait 'click'; the next step is found after they click, on the screen as it is then.
-Explanations that a picture makes clearer go on cards beside the window (tie connects a card to what it explains; every card can take a title, and card_size: small for an aside, large for something to read closely (a dense table, a detailed graph or diagram), full to fill the screen for something to study; normal by default. They can still resize it or make it full screen themselves): card (heading, text, items, sources), note (text, tone), list (title, items), mindmap (title: the topic; branches [{text, items: up to 6 short points, tone}], 2 to 8) for a topic and its parts at a glance (the user clicks a branch to open its points), clip (title, text), sources ([{name, url}]), legend (keys [{tone, text}]).
+Explanations that a picture makes clearer go on cards beside the window (tie connects a card to what it explains; every card can take a title, and card_size: small for an aside, large for something to read closely (a dense table, a detailed graph or diagram), full to fill the screen for something to study; normal by default. They can still resize it or make it full screen themselves): card (heading, text, items, sources), note (text, tone), list (title, items): a checklist; the user can tick items off, add items and edit them on the card, and what they changed reaches you with their next message (to-dos they want kept and reminded of go in remember_commitment instead), mindmap (title: the topic; branches [{text, items: up to 6 short points, tone}], 2 to 8) for a topic and its parts at a glance (the user clicks a branch to open its points), clip (title, text), sources ([{name, url}]), legend (keys [{tone, text}]).
 photo (query: a thing with a Wikipedia page, or url; text = caption). To name its parts add labels [{text, x, y}], x and y as fractions of the picture from its top left (0 to 1): only after see_photo has shown you that same picture, never from memory.
 Numbers: bars (bars [{label, value, tone}], unit) compares amounts; graph (x_range, y_range, plots [{points, tone, label}], dots [{x, y, label}]) is for curves and change over time; timeline (events [{when, text}]) for dates. table (columns [headings], rows [[one cell per column]], up to ${LIMITS.columns} by ${LIMITS.rows}) compares things side by side: the first column names each row, cells stay short, and a cell of exactly "yes" or "no" is drawn as a tick or a cross.
 flow (nodes [{id, text, shape: box|round|diamond, tone}], links [{from, to, label, flow}] by node id, dir: down|right) for a process, cause and effect or a decision: round for a start or an end, diamond for a question, flow: true runs moving dots along a link (what travels: data, blood, current), animate: true on the flow runs them along every link. Up to ${LIMITS.nodes} nodes, a few words each; it lays itself out.
@@ -854,7 +877,7 @@ molecule (smiles, label) for chemistry. model (parts [{shape: box|sphere|cylinde
 quiz (questions [{text, options: 2 to 4, answer: the right option word for word, explain}], up to ${LIMITS.questions}) for "test me": they answer by clicking and see right or wrong at once, and their score comes to you with their next message, so say a line and stop: never ask the questions in words too, or ask them for their answers or score.
 Deep explanations: when they want to really understand something ("explain gene transcription in depth", "teach me how a jet engine works", "walk me through photosynthesis"), or the answer is a process with several stages, set deep: true. Each card then opens big in the middle of the screen and replaces the one before, so plan 4 to 10 beats with one card each that build on each other: the big picture first, then one stage or idea per card (flow, model, molecule, graph, timeline, table, math, photo with labels), then a short summary card. Each say line tells that part of the story; the cards show it. Not for quick answers.
 Actions: type (text into the field at; needs actions allowed), copy (text to the clipboard), open (url), handoff (task), button (text + action {do: ask|open|copy, value}: a likely next step they can click), emote (name: hype, wave, upset, remind, motivate), sfx (name). tone: accent, teal, amber, coral, lilac, sky, lime, red, white.
-A drawing stays until the user clears it or the window changes; your next drawing replaces it. At most ${LIMITS.cardsShown} cards show at once (one more closes the oldest), so make a point with the fewest cards. Every drawn piece gets an id (p1, p2 …) in the result. To change what's drawn ("make that red", "move it left", "never mind"): edit [{do: recolor|move|erase|clear, part, tone, dx, dy}] with no beats. Up to 12 beats, 40 marks each.${POINTER_OK ? '' : " On this desktop (Wayland) clicks and hovers in other apps can't be seen: never use wait; beats play one after another, so say each step's line in an order that reads well without pausing."}`,
+A drawing stays until the user clears it or the window changes; your next drawing replaces it, unless you set keep: true, which keeps the cards already up (marks on the screen still go): use it whenever they ask to keep what's there, or the new drawing adds to it. At most ${LIMITS.cardsShown} cards show at once (one more closes the oldest), so make a point with the fewest cards. Every drawn piece gets an id (p1, p2 …) in the result. To change what's drawn ("make that red", "move it left", "never mind"): edit [{do: recolor|move|erase|clear, part, tone, dx, dy}] with no beats. Up to 12 beats, 40 marks each.${POINTER_OK ? '' : " On this desktop (Wayland) clicks and hovers in other apps can't be seen: never use wait; beats play one after another, so say each step's line in an order that reads well without pausing."}`,
       parameters: DrawArgs, executionMode: 'sequential', timeoutMs: 30 * 60_000,
       execute: draw,
     },

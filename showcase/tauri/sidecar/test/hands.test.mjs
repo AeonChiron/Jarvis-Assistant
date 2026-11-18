@@ -202,6 +202,27 @@ assert.match(opened, /no app called "NoSuchAppRoamiesTest"/, 'treated as a link 
   made.nextTurn();
   await made.ink.show(['a', 'b', 'c', 'd', 'e'].map((text) => ({ say: `Card ${text}.`, marks: [{ kind: 'note', text }] })), 'showcase-2', { fade: 5 });
   assert.match(made.ink.describe(), /note “a”.*note “e”/, 'the showcase keeps five cards');
+  // Regression (#113): asked to keep the 3D model up, the next drawing still took it away, and talking over that drawing
+  // took both. keep: true leaves the cards up; cancelling takes only what that request drew.
+  made.ink.clear(); made.nextTurn();
+  await draw.execute({ beats: [{ say: 'An atom.', marks: [{ kind: 'note', text: 'atom' }] }] }, { toolCallId: 'k1' });
+  made.nextTurn(); other.length = 0;
+  await draw.execute({ keep: true, beats: [{ say: 'A timeline.', marks: [{ kind: 'note', text: 'timeline' }] }] }, { toolCallId: 'k2' });
+  assert.ok(!other.some((e) => e.type === 'ink_clear' && !e.screen), 'keep clears only the screen marks');
+  assert.match(made.ink.describe(), /note “atom”.*note “timeline”/);
+  made.nextTurn(); hold = true; other.length = 0;
+  const over = new AbortController();
+  const half = draw.execute({ keep: true, beats: [step('Click Scale.', 'Scale')] }, { toolCallId: 'k3', signal: over.signal });
+  while (!sent.some((e) => e.id === 'k3')) await new Promise((r) => setTimeout(r, 5));
+  await new Promise((r) => setTimeout(r, 20));
+  over.abort();
+  assert.equal(await half, 'Stopped.');
+  hold = false;
+  const cleared = other.at(-1);
+  assert.equal(cleared.type, 'ink_clear'); assert.equal(cleared.stop, true); assert.equal(cleared.screen, true);
+  assert.equal(cleared.parts.length, 1, 'only the cancelled drawing goes');
+  assert.match(made.ink.describe(), /note “atom”.*note “timeline”/, 'the kept cards stay');
+  assert.doesNotMatch(made.ink.describe(), /Scale/);
   console.log('draw tool tests: passed');
 }
 

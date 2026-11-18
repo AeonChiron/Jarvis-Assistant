@@ -61,6 +61,8 @@
       const bar = Roamie.askBarRect?.();
       if (bar) grown(bar);
       for (const r of Roamie.homeRects?.() ?? []) grown(r);
+      const capsule = Roamie.notchTakes?.() ? Roamie.notchRect?.() : null;
+      if (capsule) grown(capsule);
       // Sampled a little past the canvas: hit areas can reach beyond what's drawn.
       const box = Roamie.hitBox();
       if (box) rects.push(...Roamie.hitRects(Roamie.hitTest, [box[0] - 48, box[1] - 48, box[2] + 96, box[3] + 96]));
@@ -256,7 +258,7 @@
   // While a drawing plays, the rest of the answer (its last line, the end of the turn) waits for it, so the reply's
   // bubble doesn't ride along on the drawing cursor. Drawings themselves, and a new request or an error, never wait.
   let deferred = null;
-  const PASS = new Set(['draw', 'ink_clear', 'ink_stale', 'start', 'error', 'tool_target', 'tool_image']);
+  const PASS = new Set(['draw', 'ink_clear', 'ink_stale', 'start', 'error', 'tool_target', 'tool_image', 'list_items']);
   function onAgent(e) {
     if (e.type === 'start' || e.type === 'error') flushDeferred();
     // Notch mode: the words and the end of the turn go to the capsule, never held behind a drawing.
@@ -372,6 +374,8 @@
         break;
       case 'ink_clear': Roamie.ink?.clear(e); break;
       case 'ink_stale': Roamie.ink?.stale(); break;
+      // A drawn list's items after the user added or edited one on the card.
+      case 'list_items': Roamie.ink?.listItems?.(e.part, e.items); break;
       case 'tool_target': {
         // The real window being captured, in global screen points → this overlay's coordinates.
         const job = current?.id === e.id ? current : jobs.find((j) => j.id === e.id);
@@ -539,7 +543,11 @@
       // ⌃⌥S toggles; the menu's Show Sidekick only ever shows.
       const a = getAgent();
       if (m.show || !a.visible) { if (a.show({ summoned: true })) a.act('wave'); }
-      else a.hide();
+      else {
+        // Sent away mid-answer: it stops talking too, like Esc (#108).
+        if (responding || Roamie.voiceOut?.playing()) { send({ type: 'menu', id: 'stop', via: 'hide' }); Roamie.voiceOut?.stop(); }
+        a.hide();
+      }
       return;
     }
     if (m.kind === 'say') { if (!ask || ask.bar) { if (capR()) N().say(m.text); else getAgent().say(m.text, { mood: m.mood ?? null }); } } // the field leaves the bubble free

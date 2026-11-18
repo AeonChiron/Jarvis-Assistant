@@ -33,3 +33,21 @@ assert.deepEqual(hot(), [false, true], 'no repeat while nothing changes');
 over = false; tick();
 assert.deepEqual(hot(), [false, true, false], 'and lets clicks through again once it has gone');
 console.log('host click-through tests: passed');
+
+// Regression (#108): hiding the Roamie (the summon keys) while it was talking left the voice going.
+{
+  let hidden = 0, hushed = 0, talking = true;
+  const agent = { visible: true, hide: () => { hidden++; agent.visible = false; }, show: () => false, act: noop };
+  window.Roamie.tiles = [{ creature: { agent } }];
+  window.Roamie.voiceOut = { playing: () => talking, stop: () => { hushed++; talking = false; } };
+  calls.length = 0;
+  window.__roamieHost({ kind: 'summon' });
+  assert.equal(hidden, 1);
+  assert.equal(hushed, 1, 'the voice stops');
+  assert.ok(calls.some(([c, a]) => c === 'sidecar_send' && a.msg.type === 'menu' && a.msg.id === 'stop'), 'the answer stops too');
+  // Not talking: hiding sends no stop.
+  agent.visible = true; calls.length = 0;
+  window.__roamieHost({ kind: 'summon' });
+  assert.ok(!calls.some(([c, a]) => c === 'sidecar_send' && a.msg.id === 'stop'));
+  console.log('host hide-stops-voice tests: passed');
+}

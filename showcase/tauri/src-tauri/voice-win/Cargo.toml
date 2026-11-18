@@ -24,6 +24,14 @@ windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Grap
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = "=0.13.2"
 
+# The wake word end to end on a spoken recording (tests/wake_e2e.rs): needs the speech model, so only on request.
+[features]
+e2e = []
+
+[[test]]
+name = "wake_e2e"
+required-features = ["e2e"]
+
 [profile.release]
 lto = true
 codegen-units = 1
