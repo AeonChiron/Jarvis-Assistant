@@ -1,9 +1,15 @@
 {
   "updates": [
     {
-      "version": null,
+      "version": "0.1.43",
       "date": "2026-11-19",
       "items": [
+        { "kind": "new", "title": "Wake word on Windows and Linux", "text": "Say \"Hey Roamies\" to talk, no keys needed. Turn it on in Listening, Hands-free." },
+        { "kind": "new", "title": "Lists you can tick", "text": "Lists I draw are checklists now. Tick, add and edit items, and I see what changed." },
+        { "kind": "new", "title": "The capsule everywhere", "text": "Pick Capsule in Where I appear and I open from the top of the screen, on any computer." },
+        { "kind": "improved", "title": "Cards stay when asked", "text": "Ask me to keep a card up and my next drawing leaves it there." },
+        { "kind": "fixed", "title": "Clear local model errors", "text": "When a model on your computer doesn't load, I say so instead of blaming the internet." },
+        { "kind": "fixed", "title": "Quiet when hidden", "text": "Hiding me while I'm talking now stops my voice too." },
         { "kind": "improved", "title": "One Abilities page", "text": "Skills, connections and routines now share one page, with a tab each." },
         { "kind": "improved", "title": "Full descriptions", "text": "Long descriptions wrap onto more lines instead of getting cut off." },
         { "kind": "fixed", "title": "Smoother removing", "text": "Removing something no longer flickers. It fades out and the list closes up." },
@@ -11,7 +17,7 @@
       ]
     },
     {
-      "version": null,
+      "version": "0.1.43",
       "date": "2026-11-18",
       "items": [
         { "kind": "new", "title": "Scheduled jobs", "text": "Ask me to do work at set times, like a news summary every weekday at 8." },
