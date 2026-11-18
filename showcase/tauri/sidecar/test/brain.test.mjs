@@ -59,3 +59,26 @@ assert.equal(sideThinking('huggingface', 'deepseek-ai/DeepSeek-V4.1-Flash', 'low
   for (const p of [foldPrompt('Ken'), memoryPrompt('Ken')]) assert.match(p, /JSON[\s\S]*Never secrets[\s\S]*replaces/, 'both prompts carry the fact rules');
 }
 console.log('brain tests: passed');
+
+// The skill pass: when it may run, what stops it, and what's kept of its reply.
+{
+  const { parseSkill, shouldLearn, skillInput, skillPrompt, soundsWrong } = await import('../brain.mjs');
+  assert.ok(shouldLearn({ okTools: 5 }), 'five tools that worked');
+  assert.ok(!shouldLearn({ okTools: 4 }), 'too short to be a how-to');
+  assert.ok(!shouldLearn({ okTools: 9, errors: 1 }), 'a tool failed');
+  assert.ok(!shouldLearn({ okTools: 9, aborted: true }), 'stopped');
+  assert.ok(!shouldLearn({ okTools: 9, system: true }), 'a reminder or news turn');
+  assert.ok(!shouldLearn({ okTools: 9, saved: true }), 'saved by hand already');
+  assert.ok(!shouldLearn({ okTools: 9, on: false }), 'switched off');
+  for (const t of ['no, that\'s wrong', 'Nope', 'that is not what I asked', 'it didn\'t work', 'undo that', 'you got the wrong file, wrong one']) assert.ok(soundsWrong(t), t);
+  for (const t of ['thanks!', 'now do the same for March', 'nothing else', 'not bad at all, cheers']) assert.ok(!soundsWrong(t), t);
+  assert.equal(parseSkill('{"skill": null}'), null);
+  assert.deepEqual(parseSkill('```json\n{"skill": {"name": "Export Figma frames", "description": "When they want Figma frames as PNGs.", "steps": "1. Select the frames.\\n2. Export at 2x."}}\n```'),
+    { name: 'Export Figma frames', description: 'When they want Figma frames as PNGs.', steps: '1. Select the frames.\n2. Export at 2x.' });
+  assert.equal(parseSkill('{"skill": {"name": "Pay", "description": "When paying the bill online.", "steps": "1. Enter card 4111 1111 1111 1111 and pay."}}'), null, 'no card numbers');
+  assert.equal(parseSkill('{"skill": {"name": "x", "description": "y", "steps": "z"}}'), null, 'scraps');
+  assert.throws(() => parseSkill('nothing'), /no JSON/);
+  assert.match(skillPrompt('Ken'), /Never passwords[^]*skip asking Ken[^]*When in doubt, null/);
+  assert.match(skillInput({ index: '- tidy: When tidying', used: [{ slug: 'tidy', steps: '1. Sort.' }], turns: 'Ken: tidy' }), /- tidy: When tidying[^]*followed in this request[^]*tidy:\n1\. Sort\.[^]*Ken: tidy/);
+  console.log('skill pass tests: passed');
+}

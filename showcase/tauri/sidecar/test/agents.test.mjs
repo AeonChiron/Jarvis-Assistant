@@ -458,6 +458,11 @@ assert.match(agentSystem('maker', { dir: '/x', returns: 'answer' }), /report is 
   const b = await mgr.start({ type: 'maker', title: 'Plain', brief: 'Make a thing.' });
   assert.equal(children[1].sent[0].content, 'Brief from Ken:\nMake a thing.');
   assert.equal(mgr.get(b.id).request, undefined);
+  // A scheduled job's run belongs to no turn: whatever they last said never rides into its brief.
+  said = 'remind me to call mum';
+  const sch = await mgr.start({ type: 'researcher', title: 'News', brief: 'Sum up the news.', scheduled: true });
+  assert.equal(children[2].sent[0].content, 'Brief from Ken:\nSum up the news.');
+  assert.equal(mgr.get(sch.id).request, undefined);
   // The news quotes what was asked
   children[0].emit('message', { t: 'finish', result: { outcome: 'Made the page', files: [], report: null } });
   children[0].emit('message', { t: 'end', ok: true }); children[0].emit('close', 0, null);

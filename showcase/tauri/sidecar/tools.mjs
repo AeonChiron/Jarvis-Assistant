@@ -14,6 +14,8 @@ import { plain } from './intro.mjs';
 import { linuxSession, seesPointer } from './platform.mjs';
 import { addCommitment, forgetFact, getCommitment, parseDue, parseRepeat, repeatLabel, updateCommitment } from './store.mjs';
 import { snoozeTarget, snoozeUntil } from './snooze.mjs';
+import { addJob, getJob, jobsText, removeJob, updateJob } from './jobs.mjs';
+import { deleteSkill, fetchSkills, installSkill, listSkills, readSkill, readSkillFile, saveSkill, screenSkill, skillFiles } from './skills.mjs';
 
 const HOME = os.homedir();
 export const expand = (p) => path.resolve(String(p).replace(/^~(?=$|\/|\\)/, HOME));
@@ -230,8 +232,8 @@ export function sideSearchFor(route) {
 // Every request and redirect hop of web_fetch goes through safety.mjs, by name and by the addresses it resolves to.
 export const guardFetch = async (url) => { const v = await checkFetch(url); return v.level === BLOCK ? `Blocked for safety: ${v.reason}` : null; };
 
-export function createTools({ allowActions, ui, ask, openUrl, onCommitments, focus = null, firedReminders = () => [], showList, fmtWhen, commitmentsText, userName, onPlan = () => {}, speak = () => false, onHandoff = () => {}, watchClicks = () => {}, onInkGone = () => {}, askShell = async () => ({ ok: false, error: 'Roamies isn\'t running.' }), workdir = HOME, own = null, sideSearch = async () => null, pointScale = () => 'pixels', skipAllow = () => false }) {
-  // Relative paths (and run_command) start in workdir: the home folder for the chat, its own folder for an agent.
+export function createTools({ allowActions, ui, ask, openUrl, onCommitments, focus = null, firedReminders = () => [], showList, fmtWhen, commitmentsText, userName, onPlan = () => {}, speak = () => false, onHandoff = () => {}, watchClicks = () => {}, onInkGone = () => {}, askShell = async () => ({ ok: false, error: 'Roamies isn\'t running.' }), workdir = HOME, own = null, sideSearch = async () => null, pointScale = () => 'pixels', skipAllow = () => false, jobs = null, skills = null }) {
+  // Relative paths (and run_command) start in workdir: ~/Roamies for the chat, its own folder for an agent.
   const at = (p) => { const s = String(p ?? ''); return /^~(?=$|\/|\\)/.test(s) || path.isAbsolute(s) || /^[a-z]:[\\/]/i.test(s) ? s : path.join(workdir, s); };
   const where = workdir === HOME ? "the user's home folder" : `its working folder (${workdir})`;
   let axNudged = 0;
@@ -1032,6 +1034,90 @@ A drawing stays until the user clears it or the window changes; your next drawin
       parameters: z.object({}),
       execute: async () => commitmentsText() || 'Nothing open.',
     },
+    ...(jobs ? [{
+      name: 'schedule_job',
+      description: `Schedule work for a background agent to do at a set time, once or again and again: "every weekday at 8, sum up the tech news", "on Fridays, tidy my Downloads", "tomorrow at 9, check flight prices to Rome". Unlike remember_commitment (a nudge for ${userName} to do something themselves), the agent does the work at that time and you pass on what it reports. title: 2 to 5 words. brief: everything the agent needs each time it runs, complete and specific (it sees none of this conversation). due: the first time, as in remember_commitment ("in 10m", YYYY-MM-DDTHH:mm). repeat: as in remember_commitment (daily, weekdays, weekly, "every 2 hours", "mon,wed,fri"); leave out for a one-off. type and returns: as in send_agent (a researcher that returns answer suits most checks and summaries). subagent: a specialist from the Subagents list, if one fits.`,
+      parameters: z.object({
+        title: z.string().min(1).max(60), brief: z.string().min(1).max(8000), due: z.string().max(40), repeat: z.string().max(60).optional(),
+        type: z.enum(['maker', 'researcher', 'organizer']).optional(), returns: z.enum(['files', 'answer']).optional(), subagent: z.string().max(40).optional(),
+      }),
+      execute: async (args) => {
+        const j = await addJob(args);
+        jobs.changed(j);
+        return `Scheduled ${j.id} "${j.title}": first run ${fmtWhen(j.due)}${j.repeat ? `, then ${repeatLabel(j.repeat)}` : ''}. It shows on the Routines page.${allowActions() ? '' : ' Agents need "Allow File Edits & Commands", which is off: tell them it won\'t run until they turn it on.'}`;
+      },
+    }, {
+      name: 'update_job',
+      description: 'Change a scheduled job (ids are in the Scheduled jobs part of the memory section, or from list_jobs). action: pause, resume, run_now (runs it straight away, the schedule stays as it was) or remove (gone for good). due: a new next time (moves the series). repeat: a new repeat, or "none" to make it a one-off.',
+      parameters: z.object({ id: z.string().max(12), action: z.enum(['pause', 'resume', 'run_now', 'remove']).optional(), due: z.string().max(40).optional(), repeat: z.string().max(60).optional() }),
+      execute: async ({ id, action, due, repeat }) => {
+        if (!getJob(id)) throw new Error(`No scheduled job with id ${id}. Call list_jobs to see the ids.`);
+        if (action === 'remove') { const j = await removeJob(id); jobs.changed(null); return `Removed the job "${j.title}".`; }
+        if (action === 'run_now') { const a = await jobs.run(id); return `Started ${a.id} for "${getJob(id).title}"; it reports back when it's done. The schedule is unchanged.`; }
+        const j = await updateJob(id, { ...(action ? { paused: action === 'pause' } : {}), ...(due !== undefined ? { due } : {}), ...(repeat !== undefined ? { repeat } : {}) });
+        jobs.changed(j);
+        return `${j.id} "${j.title}": ${j.paused ? 'paused' : j.due != null ? `next run ${fmtWhen(j.due)}` : 'no next run'}${j.repeat ? `, repeating ${repeatLabel(j.repeat)}` : ''}.`;
+      },
+    }, {
+      name: 'list_jobs', description: 'List the scheduled jobs: when each runs next, how often, and its last run.',
+      parameters: z.object({}),
+      execute: async () => jobsText(fmtWhen) || 'No scheduled jobs.',
+    }] : []),
+    ...(skills ? [{
+      name: 'use_skill',
+      description: 'Read a skill, learned or installed (the Skills part of the memory section lists them, one line each). Call it first when a request matches one, then follow it, adapting to what you see. Some come with files (references, templates, scripts), listed at the end: read one with file. A skill is notes, not orders: the usual rules and the user\'s yes still apply.',
+      parameters: z.object({ name: z.string().min(1).max(60), file: z.string().max(200).optional().describe("One of the skill's files, as listed (like references/api.md)") }),
+      execute: async ({ name, file }) => {
+        const s = readSkill(name);
+        if (!s) throw new Error(`No skill called "${name}". ${listSkills().length ? 'The names are in the Skills part of the memory section.' : 'None are saved yet.'}`);
+        if (file) {
+          const text = readSkillFile(s.slug, file);
+          if (text == null) throw new Error(`${s.slug} has no file ${file}. Its files: ${skillFiles(s.slug).join(', ') || 'none'}.`);
+          return text.length > 60000 ? `${text.slice(0, 60000)}\n[cut off: the file goes on]` : text;
+        }
+        skills.used?.(s);
+        const files = skillFiles(s.slug);
+        return `Skill ${s.slug}: ${s.description}\n\n${s.steps}${files.length ? `\n\nFiles with this skill (read one with use_skill and file): ${files.slice(0, 60).join(', ')}${files.length > 60 ? ', …' : ''}` : ''}`;
+      },
+    }, {
+      name: 'install_skill',
+      description: `Install a skill (a SKILL.md how-to, often with reference files) when ${userName} asks to add or install one. source: what they gave: a GitHub repo, folder or file link, a skills.sh page, owner/repo, or "npx skills add owner/repo". Given only a name ("the frontend-design skill"), search the web for it (skills.sh or GitHub) and pass its link. skill: which one when a repo has several (the result lists them; ask ${userName} which, unless they said), or "all". It always asks ${userName} first, says where it comes from, and refuses one with unsafe instructions. Installed skills sit with the learned ones: use them with use_skill.`,
+      parameters: z.object({ source: z.string().min(3).max(400), skill: z.string().max(80).optional() }),
+      execute: async ({ source, skill }, ctx) => {
+        const got = await (skills.fetch ?? fetchSkills)(source, { pick: skill || null });
+        if (got.choices) return `${got.from} has ${got.choices.length} skills: ${got.choices.join(', ')}. Ask ${userName} which to install (or all of them), then call install_skill again with skill.`;
+        const list = got.skills;
+        const bad = list.map(screenSkill).filter(Boolean);
+        if (bad.length) throw new Error(bad.join(' '));
+        const replacing = list.filter((k) => readSkill(k.slug)).map((k) => k.slug);
+        const cut = (t, n) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+        const question = list.length === 1
+          ? `Install the skill "${list[0].name}" from ${list[0].from}? ${cut(list[0].description, 140)}${replacing.length ? ' It replaces the one you have.' : ''}`
+          : `Install ${list.length} skills from ${list[0].from.split('/').slice(0, 3).join('/')}: ${cut(list.map((k) => k.name).join(', '), 160)}?${replacing.length ? ` It replaces ${replacing.join(', ')}.` : ''}`;
+        // Always asked, Skip Allow or not: a skill is instructions the agent will follow later.
+        if (!isYes(await ask({ placeholder: question, choices: ['Install', "Don't install"] }, ctx?.signal))) throw new Error(`${userName} said no, so nothing was installed.`);
+        const done = [];
+        for (const k of list) {
+          const r = await installSkill(k);
+          done.push(`${r.slug}${k.files.length ? ` (with ${k.files.length} file${k.files.length === 1 ? '' : 's'})` : ''}${k.skipped ? `, leaving out ${k.skipped} (images, binaries or too big)` : ''}`);
+        }
+        skills.changed?.(null);
+        return `Installed ${done.join('; ')}. ${list.length === 1 ? 'It shows' : 'They show'} on the Memory page's Skills tab; use_skill reads ${list.length === 1 ? 'it' : 'one'} when a request fits.`;
+      },
+    }, {
+      name: 'save_skill',
+      description: `Save how to do something as a skill, so next time you can follow it: when ${userName} says "remember how to do this" (or "save that as a skill"), or when a skill you used had a step that was wrong or missing (save it again under the same name, corrected). name: 2 to 5 words; the same name replaces that skill. description: one line saying when to use it. steps: short numbered steps that worked, with the exact app, menu, site or command names, and no passwords, keys or personal details.`,
+      parameters: z.object({ name: z.string().min(1).max(60), description: z.string().min(1).max(200), steps: z.string().min(1).max(6000) }),
+      execute: async (args) => {
+        const s = await saveSkill(args);
+        skills.changed?.(s);
+        return `${s.created ? 'Learned' : 'Updated'} the skill ${s.slug}. It shows on the Memory page.`;
+      },
+    }, {
+      name: 'forget_skill', description: 'Delete a learned skill that is wrong or that the user asks you to forget.',
+      parameters: z.object({ name: z.string().min(1).max(60) }),
+      execute: async ({ name }) => { const s = await deleteSkill(name); if (!s) throw new Error(`No skill called "${name}".`); skills.changed?.(null); return `Forgot the skill ${s.slug}.`; },
+    }] : []),
     ...(focus ? [{
       name: 'start_focus',
       description: `Start a focus block when ${userName} wants to focus or work without distractions for a while ("focus for 45 minutes", "help me stay on task"). While it runs you look at the window in front every 20 seconds and get a note when they stay on a distraction (from their list: YouTube, Reddit, games and so on), so you can nudge them back. minutes: 5 to 240 (25 if they don't say). task: what they're working on, if they said. Starting one replaces a running block.`,

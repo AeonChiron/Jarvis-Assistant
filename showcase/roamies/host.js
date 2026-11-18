@@ -112,7 +112,7 @@
       // What it's saying stays up while you type: only what's sent interrupts it.
       ask = { id: m.id, bar: true, h: { close: () => bar.close(), focus() {} }, choices: null, sel: -1, label: null };
       bar.open({
-        placeholder: m.prompt || m.placeholder || '', label: field.getAttribute('aria-label'), cursor,
+        placeholder: m.prompt || m.placeholder || '', value: m.value || '', label: field.getAttribute('aria-label'), cursor,
         onKey: (e) => askKey(e, bar.value, true), onPress: focusField, onLeft: () => finishAsk(null),
       });
       focusField();

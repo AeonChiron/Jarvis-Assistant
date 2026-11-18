@@ -25,8 +25,8 @@ function node(tag) {
     getBoundingClientRect: () => ({ left: 0, top: 0, right: 500, bottom: 60, width: 500, height: 60 }),
     querySelector: (q) => (found[q] ??= node('div')), querySelectorAll: () => [], appendChild: (c) => kids.push(c), append: (...c) => kids.push(...c),
     replaceChildren(...c) { kids.length = 0; kids.push(...c); }, get children() { return kids; },
-    addEventListener: noop, animate: () => ({ cancel: noop }), getAnimations: () => [], getContext: () => new Proxy({}, { get: () => noop }),
-    scrollHeight: 0, offsetHeight: 0, offsetWidth: 0,
+    on: {}, addEventListener(t, f) { (this.on[t] ??= []).push(f); }, fire(t) { (this.on[t] ?? []).forEach((f) => f({})); }, animate: () => ({ cancel: noop }), getAnimations: () => [], getContext: () => new Proxy({}, { get: () => noop }),
+    scrollHeight: 0, offsetHeight: 0, offsetWidth: 0, scrollTop: 0, clientHeight: 0,
   };
   els.push(base);
   return base;
@@ -97,4 +97,25 @@ R.notch.done();
 assert.equal(R.notch.active, true, 'the cut-short turn ending leaves it listening');
 R.notch.fail('stopped');
 assert.equal(capsule.dataset.mode, 'listen', 'an error from it does too');
+// A long reply scrolls: new words keep the newest line in view, unless they scrolled up to read, and only their own
+// scrolling (not the text being replaced as words stream in) counts as scrolling up.
+R.notch.close(); flush(); frames();
+{
+  const t = capsule.querySelector('.nc-text');
+  t.scrollHeight = 1000; t.clientHeight = 140;
+  R.notch.text('a long reply'); frames();
+  assert.equal(t.scrollTop, 1000, 'it follows the newest line');
+  t.scrollTop = 0; t.fire('scroll'); // the text was replaced, not scrolled by them
+  R.notch.text(' and more'); frames();
+  assert.equal(t.scrollTop, 1000, 'a scroll they didn\'t make leaves it following');
+  t.fire('wheel'); t.scrollTop = 300; t.fire('scroll');
+  R.notch.text(' and more'); frames();
+  assert.equal(t.scrollTop, 300, 'scrolled up to read: new words leave it where it is');
+  t.fire('wheel'); t.scrollTop = 860; t.fire('scroll');
+  R.notch.text(' and more'); frames();
+  assert.equal(t.scrollTop, 1000, 'back at the bottom: it follows again');
+  t.fire('wheel'); t.scrollTop = 300; t.fire('scroll');
+  R.notch.close(); flush(); frames(); R.notch.text('a new reply'); frames();
+  assert.equal(t.scrollTop, 1000, 'a new reply starts at its newest line');
+}
 console.log('notch tests: passed');

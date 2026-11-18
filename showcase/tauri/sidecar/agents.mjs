@@ -7,10 +7,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import { askedLine, exactWords, userWordsBlock, withWords } from './quote.mjs';
+import { roamiesRoot } from './store.mjs';
 import { withRole } from './subagents.mjs';
 
-// One visible folder for everything agents make (no macOS privacy prompt); ROAMIES_DATA_DIR moves it for tests.
-export const agentsRoot = () => (process.env.ROAMIES_DATA_DIR ? path.join(process.env.ROAMIES_DATA_DIR, 'Roamies') : path.join(os.homedir(), 'Roamies'));
+// ~/Roamies (datadir.mjs): one visible folder, so no macOS privacy prompt; ROAMIES_DATA_DIR moves it for tests.
+export const agentsRoot = roamiesRoot;
 export const AGENT_TYPES = ['maker', 'researcher', 'organizer'];
 // What it hands back: files when something was asked to be made, a written answer (to the chat) otherwise.
 export const RETURNS = ['files', 'answer'];
@@ -291,7 +292,7 @@ export function createAgents({ fork, ui, config, root, userName = 'The user', ru
   const newId = () => { for (;;) { const id = `a${Math.random().toString(36).slice(2, 5)}`; if (!agents.has(id)) return id; } };
   const actionsOff = 'File edits and commands are switched off, and agents need them. Tell the user to turn on "Allow File Edits & Commands" if they want one.';
 
-  async function start({ type, title, brief, inputs = [], deliver_to: deliverTo, continue: cont, returns, model: modelName, subagent } = {}) {
+  async function start({ type, title, brief, inputs = [], deliver_to: deliverTo, continue: cont, returns, model: modelName, subagent, scheduled = false } = {}) {
     await loaded;
     // A specialist from the crew: its type, its role in front of the brief, and the model picked for it.
     const inherited = !subagent && cont ? agents.get(String(cont))?.sub : null; // a continued run stays with its specialist (if still on the crew)
@@ -304,7 +305,8 @@ export function createAgents({ fork, ui, config, root, userName = 'The user', ru
     if (returns != null && !RETURNS.includes(returns)) throw new Error(`returns must be one of ${RETURNS.join(', ')}.`);
     if (!String(brief ?? '').trim()) throw new Error('The brief is empty: say everything the agent needs, it sees none of this conversation.');
     const md = await config.model(sub ? { spec: sub.spec, slot: sub.slot } : modelName ? String(modelName) : undefined); // a model they named for it, else the usual
-    const words = String(config.userWords?.() ?? '').trim(); // what they said this turn, verbatim (sidekick.mjs)
+    // What they said this turn, verbatim (sidekick.mjs); a scheduled run belongs to no turn.
+    const words = scheduled ? '' : String(config.userWords?.() ?? '').trim();
     const cap = md.provider === 'local' ? LIMITS.local : LIMITS.running, busy = running().length;
     if (busy >= cap) throw new Error(`${busy} agent${busy === 1 ? ' is' : 's are'} already working, and ${cap} at once is the most${md.provider === 'local' ? ' on a local model' : ''}. Tell ${userName}: they can stop one (or wait for one to finish) and ask again.`);
     let to = null;

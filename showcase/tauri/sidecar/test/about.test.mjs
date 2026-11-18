@@ -28,3 +28,12 @@ for (const t of [mac, win, linux]) {
   assert.ok(!/\$\{|undefined/.test(t), 'every part is filled in');
 }
 console.log('about tests: passed');
+// Scheduled jobs, skills and connections: where each lives in the panel, and that they're made by asking.
+for (const t of [mac, win, linux]) {
+  assert.match(t, /Memory: three tabs[^]*Skills \(how-tos you learned, each with View[^]*Learn Skills on the General page/);
+  assert.match(t, /Scheduled Jobs: work a background agent does at set times, made by asking you \(schedule_job\)[^]*Run Now, Pause or Resume, and Remove/);
+  assert.match(t, /Connections \(apps and services you use through their MCP servers[^]*only added by asking you[^]*the button Connect an App/);
+}
+assert.match(mac, /kept in the Keychain\), General/);
+assert.match(win, /kept in the Windows key store\), General/);
+console.log('about (jobs, skills, connections) tests: passed');

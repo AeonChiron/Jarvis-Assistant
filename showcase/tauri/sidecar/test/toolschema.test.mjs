@@ -4,9 +4,22 @@ import { resolveToolSchema } from '@kenkaiiii/gg-ai';
 import { createTools, shellFor } from '../tools.mjs';
 
 const noop = async () => {};
-const { tools } = createTools({ allowActions: false, ui: () => {}, ask: async () => false, openUrl: noop, onCommitments: noop, showList: noop, fmtWhen: String, commitmentsText: () => '', userName: 'Test', focus: { start: () => 'ok', stop: () => 'ok' } });
+const { tools } = createTools({ allowActions: false, ui: () => {}, ask: async () => false, openUrl: noop, onCommitments: noop, showList: noop, fmtWhen: String, commitmentsText: () => '', userName: 'Test', focus: { start: () => 'ok', stop: () => 'ok' }, jobs: { changed: () => {}, run: async () => ({ id: 'a1' }) }, skills: { changed: () => {} } });
 // Focus mode's tools are there where the window in front can be read (focus given), and checked below with the rest.
 assert.ok(tools.some((t) => t.name === 'start_focus') && tools.some((t) => t.name === 'stop_focus'), 'focus tools');
+
+// Scheduled jobs' tools are there when the chat runs jobs (jobs given), and checked below with the rest.
+for (const n of ['schedule_job', 'update_job', 'list_jobs', 'use_skill', 'save_skill', 'forget_skill', 'install_skill']) assert.ok(tools.some((t) => t.name === n), n);
+assert.ok(!createTools({ allowActions: false, ui: () => {}, ask: async () => false, openUrl: noop, onCommitments: noop, showList: noop, fmtWhen: String, commitmentsText: () => '', userName: 'Test' }).tools.some((t) => t.name === 'schedule_job'), 'no job tools without jobs (background agents)');
+
+// Connections' tools (mcp.mjs) are checked with the rest.
+{
+  const { createMcpTools } = await import('../mcp.mjs');
+  const { isYes } = await import('../safety.mjs');
+  const extra = createMcpTools({ mcp: {}, ask: async () => null, isYes, checkCall: () => ({ level: 'safe' }) });
+  assert.deepEqual(extra.map((t) => t.name), ['add_connection', 'remove_connection', 'connection_tools', 'use_connection']);
+  tools.push(...extra);
+}
 
 // Regression: the old fetch_url's url had format "uri", which OpenAI strict schemas reject, failing every OpenAI request.
 const formats = [];
@@ -127,4 +140,20 @@ if (process.platform === 'darwin') {
   assert.deepEqual(shellFor(cmd, 'linux', {}), ['/bin/bash', ['-lc', cmd], {}]);
   assert.equal(shellFor('ls', 'linux', { SHELL: '/usr/bin/fish' })[0], '/usr/bin/fish', 'their own shell where set');
   console.log('run_command shell tests: passed');
+}
+
+// install_skill always asks, even with Skip Allow prompts on, says where the skill comes from, and a no installs nothing.
+{
+  const asks = [];
+  const fake = { slug: 'zz-test-skill', name: 'zz test skill', description: 'Only for this test', text: '---\nname: zz test skill\n---\nx', files: [], skipped: 0, from: 'github.com/o/r/zz' };
+  const { tools: t } = createTools({ allowActions: false, ui: () => {}, ask: async (q) => { asks.push(q); return null; }, openUrl: noop, onCommitments: noop, showList: noop, fmtWhen: String, commitmentsText: () => '', userName: 'Test', skipAllow: () => true,
+    skills: { changed: () => {}, fetch: async (src, { pick }) => (pick ? { skills: [fake] } : { choices: ['zz', 'yy'], from: 'github.com/o/r' }) } });
+  const install = t.find((x) => x.name === 'install_skill');
+  assert.match(await install.execute({ source: 'o/r' }), /github\.com\/o\/r has 2 skills: zz, yy\. Ask Test which/, 'several: asks which, installs nothing');
+  assert.equal(asks.length, 0);
+  await assert.rejects(install.execute({ source: 'o/r', skill: 'zz' }, {}), /Test said no, so nothing was installed/);
+  assert.equal(asks.length, 1, 'asked, Skip Allow or not');
+  assert.match(asks[0].placeholder, /Install the skill "zz test skill" from github\.com\/o\/r\/zz\? Only for this test/);
+  assert.deepEqual(asks[0].choices, ['Install', "Don't install"]);
+  console.log('install_skill asks tests: passed');
 }
