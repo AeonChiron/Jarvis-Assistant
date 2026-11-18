@@ -71,7 +71,7 @@ export async function saveSkill({ name, description, steps }) {
   const v = checkSkill(`${name}\n${desc}\n${body}`);
   if (v.level === BLOCK) throw new Error(v.reason);
   const had = existsSync(fileOf(slug));
-  if (!had && listSkills().length >= MAX_SKILLS) throw new Error(`There are already ${MAX_SKILLS} skills, the most there can be. Forget one first.`);
+  if (!had && listSkills().length >= MAX_SKILLS) throw new Error(`There are already ${MAX_SKILLS} skills, the most there can be. Remove one first.`);
   const file = fileOf(slug);
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.${randomBytes(3).toString('hex')}.tmp`;
@@ -229,7 +229,7 @@ export async function installSkill(sk) {
   const slug = slugOf(sk.slug);
   if (!slug) throw new Error('That skill has no name.');
   const had = existsSync(fileOf(slug));
-  if (!had && listSkills().length >= MAX_SKILLS) throw new Error(`There are already ${MAX_SKILLS} skills, the most there can be. Forget one first.`);
+  if (!had && listSkills().length >= MAX_SKILLS) throw new Error(`There are already ${MAX_SKILLS} skills, the most there can be. Remove one first.`);
   const dest = path.join(SKILLS_DIR, slug), tmp = path.join(SKILLS_DIR, `.${slug}.${process.pid}.${randomBytes(3).toString('hex')}`);
   await fs.mkdir(tmp, { recursive: true, mode: 0o700 });
   try {

@@ -1044,7 +1044,7 @@ A drawing stays until the user clears it or the window changes; your next drawin
       execute: async (args) => {
         const j = await addJob(args);
         jobs.changed(j);
-        return `Scheduled ${j.id} "${j.title}": first run ${fmtWhen(j.due)}${j.repeat ? `, then ${repeatLabel(j.repeat)}` : ''}. It shows on the Routines page.${allowActions() ? '' : ' Agents need "Allow File Edits & Commands", which is off: tell them it won\'t run until they turn it on.'}`;
+        return `Scheduled ${j.id} "${j.title}": first run ${fmtWhen(j.due)}${j.repeat ? `, then ${repeatLabel(j.repeat)}` : ''}. It shows on the Abilities page's Routines tab.${allowActions() ? '' : ' Agents need "Allow File Edits & Commands", which is off: tell them it won\'t run until they turn it on.'}`;
       },
     }, {
       name: 'update_job',
@@ -1102,7 +1102,7 @@ A drawing stays until the user clears it or the window changes; your next drawin
           done.push(`${r.slug}${k.files.length ? ` (with ${k.files.length} file${k.files.length === 1 ? '' : 's'})` : ''}${k.skipped ? `, leaving out ${k.skipped} (images, binaries or too big)` : ''}`);
         }
         skills.changed?.(null);
-        return `Installed ${done.join('; ')}. ${list.length === 1 ? 'It shows' : 'They show'} on the Memory page's Skills tab; use_skill reads ${list.length === 1 ? 'it' : 'one'} when a request fits.`;
+        return `Installed ${done.join('; ')}. ${list.length === 1 ? 'It shows' : 'They show'} on the Abilities page's Skills tab; use_skill reads ${list.length === 1 ? 'it' : 'one'} when a request fits.`;
       },
     }, {
       name: 'save_skill',
@@ -1111,12 +1111,12 @@ A drawing stays until the user clears it or the window changes; your next drawin
       execute: async (args) => {
         const s = await saveSkill(args);
         skills.changed?.(s);
-        return `${s.created ? 'Learned' : 'Updated'} the skill ${s.slug}. It shows on the Memory page.`;
+        return `${s.created ? 'Learned' : 'Updated'} the skill ${s.slug}. It shows on the Abilities page's Skills tab.`;
       },
     }, {
       name: 'forget_skill', description: 'Delete a learned skill that is wrong or that the user asks you to forget.',
       parameters: z.object({ name: z.string().min(1).max(60) }),
-      execute: async ({ name }) => { const s = await deleteSkill(name); if (!s) throw new Error(`No skill called "${name}".`); skills.changed?.(null); return `Forgot the skill ${s.slug}.`; },
+      execute: async ({ name }) => { const s = await deleteSkill(name); if (!s) throw new Error(`No skill called "${name}".`); skills.changed?.(null); return `Removed the skill ${s.slug}.`; },
     }] : []),
     ...(focus ? [{
       name: 'start_focus',

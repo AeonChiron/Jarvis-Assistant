@@ -145,7 +145,7 @@ export function createMcp({ file = path.join(DIR, 'mcp.json'), secrets, manager 
   /** One line per enabled server for the live state ('' when there are none). */
   function liveText() {
     const rows = status().filter((s) => s.enabled);
-    return rows.map((s) => `- ${s.name}: ${s.state === 'connected' ? `connected, ${s.toolCount} tool${s.toolCount === 1 ? '' : 's'}` : s.state === 'needs-login' ? 'needs sign-in (the Connections page)' : s.state === 'needs-key' ? `needs a key (${s.error})` : s.state === 'error' ? `not working: ${String(s.error ?? '').slice(0, 120)}` : 'not connected yet'}`).join('\n');
+    return rows.map((s) => `- ${s.name}: ${s.state === 'connected' ? `connected, ${s.toolCount} tool${s.toolCount === 1 ? '' : 's'}` : s.state === 'needs-login' ? "needs sign-in (the Abilities page's Connections tab)" : s.state === 'needs-key' ? `needs a key (${s.error})` : s.state === 'error' ? `not working: ${String(s.error ?? '').slice(0, 120)}` : 'not connected yet'}`).join('\n');
   }
 
   /** A server's tools: [{ name, description, schema, annotations }], optionally only those matching query. */
@@ -239,10 +239,10 @@ export function createMcpTools({ mcp, ask, isYes, allowActions = () => true, ski
         if (!p.ok && !p.requiresAuth) throw new Error(`Couldn't connect to ${name}: ${p.error ?? 'no answer'}. Nothing was saved. Check the server's docs (the command, the address, which keys it needs) and try again, or tell ${userName} what went wrong.`);
         let r = await mcp.add({ name, command, args, url, secretEnv, secretHeaders });
         if (r?.requiresAuth) {
-          r = await mcp.login(name, (u) => openUrl(u)).catch((e) => { throw new Error(`${name} is saved, but its sign-in didn't finish (${e.message}). ${userName} can sign in on the Connections page.`); });
+          r = await mcp.login(name, (u) => openUrl(u)).catch((e) => { throw new Error(`${name} is saved, but its sign-in didn't finish (${e.message}). ${userName} can sign in on the Abilities page's Connections tab.`); });
         }
         if (!r?.ok) throw new Error(`${name} is saved but not working yet: ${r?.error ?? 'unknown'}.`);
-        return `Connected ${name}: ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'}. Use connection_tools to see them. It shows on the Connections page.`;
+        return `Connected ${name}: ${r.tools.length} tool${r.tools.length === 1 ? '' : 's'}. Use connection_tools to see them. It shows on the Abilities page's Connections tab.`;
       },
     },
     {

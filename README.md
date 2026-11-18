@@ -87,9 +87,9 @@ quizzes you answer with a click.
 - **Out of the way:** no Dock or taskbar button, a shortcut shows or hides it (see the table), Esc stops a reply.
 - **Updates itself:** updates are signature-checked before they install, then it restarts itself. The Windows installer isn't code-signed yet, so SmartScreen warns the first time. On Linux only the AppImage updates itself.
 - **Quick setup:** permissions, sign-in and a short chat so it gets to know you.
-- **Scheduled jobs:** ask for work at set times ("every weekday at 8, sum up the tech news") and a background agent does it then; see them on the Routines page.
-- **Skills:** install any skill by asking, with a GitHub repo or folder link, a skills.sh page or just its name (it asks first). Or say "remember how to do this" and it keeps the how-to; after a long task that worked it can learn one itself (Learn skills on the General page). They're on the Memory page.
-- **Connections:** ask it to connect an app or service ("connect my Linear") and it finds the official MCP server, asks you first, and takes any key in the chat input. Manage them on the Connections page.
+- **Scheduled jobs:** ask for work at set times ("every weekday at 8, sum up the tech news") and a background agent does it then; see them on the panel's Abilities page, under Routines.
+- **Skills:** install any skill by asking, with a GitHub repo or folder link, a skills.sh page or just its name (it asks first). Or say "remember how to do this" and it keeps the how-to; after a long task that worked it can learn one itself (Learn skills on the General page). They're on the Abilities page, under Skills.
+- **Connections:** ask it to connect an app or service ("connect my Linear") and it finds the official MCP server, asks you first, and takes any key in the chat input. Manage them on the Abilities page, under Connections.
 
 |                        | macOS                      | Windows                     | Linux (beta)                       |
 | ---------------------- | -------------------------- | --------------------------- | ---------------------------------- |

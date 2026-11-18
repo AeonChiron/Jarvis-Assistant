@@ -99,8 +99,8 @@ Your Fish Audio key, your Gemini voice key and the keys for your connections are
 (through the Secret Service) on Linux.
 
 You can see what Roamies remembers on the panel's **Memory** page, and remove it with **Forget** or
-**Forget Everything**. Learned skills are on its **Skills** tab, scheduled jobs on the **Routines** page and
-connections on the **Connections** page, each with **Remove** or **Forget**.
+**Forget Everything**. Learned skills, connections and scheduled jobs are on the **Abilities** page, under its
+**Skills**, **Connections** and **Routines** tabs, each with **Remove**.
 
 ## Deleting everything
 

@@ -2439,7 +2439,7 @@ async function onMenu(id, via) {
   else if (id.startsWith('geminimodel:') && GEMINI_CHOICES.some((c) => c.id === id.slice(12))) {
     config.geminiModel = id.slice(12); saveConfig(); if (tts().id === 'gemini') speech.setModel(config.geminiModel); menu();
   }
-  // Scheduled jobs, from the Routines page. Remove is asked first in the panel's own words.
+  // Scheduled jobs, from the Abilities page's Routines tab. Remove is asked first in the panel's own words.
   else if (/^job:(run|pause|resume|remove):j[0-9a-f]+$/.test(id)) {
     const [, what, jid] = id.split(':');
     const j = getJob(jid);
@@ -2449,13 +2449,13 @@ async function onMenu(id, via) {
     else await updateJob(jid, { paused: what === 'pause' });
     scheduleJobs(); menu();
   }
-  // Learned skills, from the Memory page: View opens the SKILL.md, Forget (asked first in the panel) deletes it.
+  // Learned skills, from the Abilities page's Skills tab: View opens the SKILL.md, Remove (asked first in the panel) deletes it.
   else if (/^skill:(view|forget):[a-z0-9-]+$/.test(id)) {
     const [, what, slug] = id.split(':');
     const k = readSkill(slug);
     if (!k) return;
     if (what === 'view') { if (process.platform === 'win32') winOpen(k.path); else execFile(MAC ? 'open' : 'xdg-open', [k.path], () => {}); }
-    else { await deleteSkill(slug); panelNote(`Forgot the skill “${k.name}”.`); menu(); }
+    else { await deleteSkill(slug); panelNote(`Removed the skill “${k.name}”.`); menu(); }
   }
   // Connections, from their page. Adding one is only by asking (add_connection); Remove is asked first in the panel.
   else if (/^mcp:(on|off|login|remove):[a-z0-9][a-z0-9_-]{0,31}$/i.test(id)) {
@@ -2910,7 +2910,7 @@ async function runJob(j, { now = false } = {}) {
     return null;
   } finally { panel(); }
 }
-// A row on the Routines page: when it runs next, how often, and how its last run went.
+// A row on the Abilities page's Routines tab: when it runs next, how often, and how its last run went.
 function jobRow(j) {
   const a = j.lastAgentId ? agents.get(j.lastAgentId) : null;
   const last = !j.lastRunAt ? '' : j.lastError ? `Didn't run: ${j.lastError}` : a?.state === 'working' || a?.state === 'waiting' ? 'Running now'
