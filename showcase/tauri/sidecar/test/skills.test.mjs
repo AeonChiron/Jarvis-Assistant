@@ -21,7 +21,7 @@ const s = await K.saveSkill({ name: 'Export Figma frames', description: 'When th
 assert.equal(s.slug, 'export-figma-frames'); assert.ok(s.created);
 const file = fs.readFileSync(path.join(K.SKILLS_DIR, 'export-figma-frames', 'SKILL.md'), 'utf8');
 assert.match(file, /^---\nname: "Export Figma frames"\ndescription: "When they want frames out of Figma as PNGs\."\n---\n\n1\. Select the frames\./);
-assert.equal((fs.statSync(path.join(K.SKILLS_DIR, 'export-figma-frames', 'SKILL.md')).mode & 0o777), 0o600, 'private file');
+if (process.platform !== 'win32') assert.equal((fs.statSync(path.join(K.SKILLS_DIR, 'export-figma-frames', 'SKILL.md')).mode & 0o777), 0o600, 'private file'); // no Unix modes on Windows
 const r = K.readSkill('export figma frames');
 assert.equal(r.description, 'When they want frames out of Figma as PNGs.');
 assert.equal(r.steps, '1. Select the frames.\n2. Export at 2x.');
