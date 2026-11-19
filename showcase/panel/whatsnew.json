@@ -1,9 +1,11 @@
 {
   "updates": [
     {
-      "version": null,
+      "version": "0.1.45",
       "date": "2026-11-20",
       "items": [
+        { "kind": "fixed", "title": "One Allow question at a time", "text": "When I needed a few OKs at once, they cancelled each other. Now they come one by one." },
+        { "kind": "fixed", "title": "Mic comes back on a Mac", "text": "If your iPhone mic dropped out, I stopped hearing you until a restart. I switch now." },
         { "kind": "fixed", "title": "Keys save on new PCs", "text": "On a new Windows PC, saving a key failed with E30. Fixed. Thanks EpicMagicWiz!" },
         { "kind": "fixed", "title": "Voice on a fresh Windows", "text": "Some PCs lacked files my voice needs, so it never started. I bring them along now." },
         { "kind": "fixed", "title": "Model lists fit again", "text": "Long OpenRouter model names squashed the Hybrid page. It fits again." },
