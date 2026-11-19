@@ -25,7 +25,7 @@ voice, keeps track of what you said you'd do and nudges you when it's due.
 
 > [!TIP]
 > **Want to build your own apps with AI?**
-> - **Raid+:** make money with AI, a sellable app in 30 days, live every Thursday: [skool.com/kenkai](https://www.skool.com/kenkai)
+> - **Raid+:** land your first paying client in 90 days or your money back, plus private tools you won't find anywhere else: [skool.com/kenkai](https://www.skool.com/kenkai)
 > - **Want it built for you?** [work.kenkais.com](https://work.kenkais.com/)
 
 > ⭐ **If Roamies keeps you on track, give it a star.** It's the main way other people find it.
@@ -304,7 +304,7 @@ to get started, read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request, a
 
 ## Learn with me
 
-Want to make money with AI? **[Raid+](https://www.skool.com/kenkai)**: a sellable app in 30 days, live every Thursday.
+Want to make money with AI? **[Raid+](https://www.skool.com/kenkai)**: land your first paying client in 90 days or your money back, plus private tools you won't find anywhere else.
 
 Want it built for you? **[work.kenkais.com](https://work.kenkais.com/)**
 
