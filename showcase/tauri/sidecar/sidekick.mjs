@@ -36,7 +36,7 @@ import { cleanWakeName, wakeName } from './wakename.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
-import { copyText, createTools, expand, fitImage, imageBlock, winOpen } from './tools.mjs';
+import { copyText, createTools, expand, fitImage, imageBlock, oneYesNoAtATime, winOpen } from './tools.mjs';
 import { describeMarks } from './marks.mjs';
 import { faviconFor } from './draw.mjs';
 import { QUESTIONS, openNote, answerTurn, wantsSkip, endsChat, splitTurn, plain, stripNote, tourBeats, goalFrom, showcaseBeats } from './intro.mjs';
@@ -1581,7 +1581,12 @@ const stallMessage = () => `${PROVIDER_LABELS[config.provider] ?? 'The AI'} stop
 // ---------- asking the user (input bubble in the overlay) ----------
 let askSeq = 0;
 const pending = new Map();
+let askQueued = null;
 function ask(opts, signal) {
+  askQueued ??= oneYesNoAtATime(showAsk);
+  return askQueued(opts, signal);
+}
+function showAsk(opts, signal) {
   const id = `a${++askSeq}`;
   const to = onboarding ? ob : ui;
   // The setup guide has no buttons: its answer box takes a typed y.

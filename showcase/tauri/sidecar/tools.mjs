@@ -232,6 +232,23 @@ export function sideSearchFor(route) {
 // Every request and redirect hop of web_fetch goes through safety.mjs, by name and by the addresses it resolves to.
 export const guardFetch = async (url) => { const v = await checkFetch(url); return v.level === BLOCK ? `Blocked for safety: ${v.reason}` : null; };
 
+// Tools run in parallel, but the overlay shows one yes/no at a time: a second one replaced the first and answered it
+// no, so the model retried and asked again. Yes/no questions wait their turn; one cancelled while waiting never shows.
+export function oneYesNoAtATime(ask) {
+  let last = Promise.resolve();
+  return (opts, signal) => {
+    if (!opts?.choices) return ask(opts, signal);
+    const prev = last;
+    const mine = new Promise((resolve) => {
+      const gone = () => resolve(null);
+      signal?.addEventListener('abort', gone, { once: true });
+      prev.then(() => { signal?.removeEventListener('abort', gone); if (!signal?.aborted) resolve(ask(opts, signal)); });
+    });
+    last = prev.then(() => mine).then(() => {}, () => {});
+    return mine;
+  };
+}
+
 export function createTools({ allowActions, ui, ask, openUrl, onCommitments, focus = null, firedReminders = () => [], showList, fmtWhen, commitmentsText, userName, onPlan = () => {}, speak = () => false, onHandoff = () => {}, watchClicks = () => {}, onInkGone = () => {}, askShell = async () => ({ ok: false, error: 'Roamies isn\'t running.' }), workdir = HOME, own = null, sideSearch = async () => null, pointScale = () => 'pixels', skipAllow = () => false, jobs = null, skills = null }) {
   // Relative paths (and run_command) start in workdir: ~/Roamies for the chat, its own folder for an agent.
   const at = (p) => { const s = String(p ?? ''); return /^~(?=$|\/|\\)/.test(s) || path.isAbsolute(s) || /^[a-z]:[\\/]/i.test(s) ? s : path.join(workdir, s); };
