@@ -6,7 +6,7 @@ import { DrawArgs, LIMITS, checkDraw, createParts, describeParts, faviconFor, fi
 const ok = (a) => DrawArgs.safeParse(a).success;
 assert.ok(ok({ beats: [{ say: 'Click Export.', marks: [{ kind: 'target', at: { text: 'Export' }, label: 'Export' }], wait: 'click' }] }), 'a walkthrough step');
 assert.ok(ok({ edit: [{ do: 'recolor', part: 'p2', tone: 'red' }] }), 'edits alone');
-assert.ok(!ok({ beats: [{ say: '', marks: [] }] }), 'a beat needs a line');
+assert.deepEqual(checkDraw(DrawArgs.parse({ beats: [{ say: '', marks: [] }] })), ['beat 1: needs say or marks.'], 'an empty beat');
 assert.ok(!ok({ beats: [{ say: 'x', marks: [{ kind: 'explode' }] }] }), 'unknown mark');
 assert.ok(!ok({ beats: Array.from({ length: LIMITS.beats + 1 }, () => ({ say: 'x', marks: [] })) }), 'too many beats');
 assert.ok(!ok({ beats: [{ say: 'x', marks: Array.from({ length: LIMITS.marks + 1 }, () => ({ kind: 'point', at: { x: 1, y: 1 } })) }] }), 'too many marks');
@@ -435,4 +435,12 @@ console.log('shape radius tests: passed');
   assert.deepEqual(tidy(fine), fine);
   assert.equal(tidy({ beats: [{ say: 'x', heading: 'H', marks: [{ kind: 'card', text: 'a' }, { kind: 'card', text: 'b' }] }] }).beats[0].marks.every((m) => !m.heading), true);
   console.log('draw tidy tests: passed');
+}
+
+{ // #117: a beat without its spoken line (or with the line on the call) drew nothing: "expected string → at beats[0].say".
+  const a = DrawArgs.parse({ target: 'screen', beats: [{ marks: [{ kind: 'point', at: { text: 'Start' } }] }, { marks: [{ kind: 'point', at: { text: 'End' } }] }] });
+  assert.deepEqual(a.beats.map((b) => b.say), ['', ''], 'no line: drawn without a caption');
+  assert.deepEqual(checkDraw(a), [], 'and nothing else is wrong with it');
+  const b = DrawArgs.parse({ say: 'WWII timeline', beats: [{ marks: [{ kind: 'point', at: { text: 'Start' } }] }, { say: 'The end.', marks: [] }] });
+  assert.deepEqual(b.beats.map((x) => x.say), ['WWII timeline', 'The end.'], "the call's line goes on its first beat");
 }

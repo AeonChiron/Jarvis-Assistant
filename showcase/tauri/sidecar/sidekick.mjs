@@ -55,7 +55,7 @@ import { createSecrets, retryLoad, runInput } from './secrets.mjs';
 import { showTrayIcon } from './wintray.mjs';
 import { createActivity } from './activity.mjs';
 import { canCircle, canSnap, cleanMics, talkChords, hasHands, hasHotkeys, hasVoice, hasWakeWord, linuxSession, micTrouble, needsVoiceModel, platformLine, samePair, seesPointer, writeChord, writeChords } from './platform.mjs';
-import { accountKeys, fallbackModel, keyCards, keyKinds, seesImages, signInCards } from './providers.mjs';
+import { openAuth, accountKeys, fallbackModel, keyCards, keyKinds, seesImages, signInCards } from './providers.mjs';
 import { OLLAMA, connectLocal, contextNote, downNote, forgetLocal, isSmallModel, newServer, noModelsNote, serverFor, serverList, syncLocal as syncServers, withWindow } from './local.mjs';
 import { activityLogs, buildReport, redact, reportDir, reportName, reveal, run, scrubConfig, tail } from './diagnostics.mjs';
 import { detailsText, explain } from './errors.mjs';
@@ -379,7 +379,7 @@ const PANEL = LINUX ? 'the panel (Open Panel… in my tray icon\'s menu, or open
 const LAUNCH = process.env.ROAMIES_LAUNCH || 'roamies';
 const BIND = Object.fromEntries(['summon', 'talk', 'ask', 'list', 'panel'].map((k) => [k, `${LAUNCH} --${k}`]));
 
-const auth = new AuthStorage();
+const auth = openAuth();
 // OpenRouter's and OpenCode's full model lists (gg-core ships only a few of each), cached next to the sessions.
 const catalogs = createCatalogs({ auth, dir: STORE_DIR });
 // Reads the stale lists of connected providers (or just `only`, right after its key is saved) and updates the menu.
