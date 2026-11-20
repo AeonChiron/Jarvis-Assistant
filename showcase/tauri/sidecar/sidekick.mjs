@@ -12,7 +12,7 @@ import { agentsRoot, createAgents, holdAfterLaunch, newsDesk, wantsAgent } from 
 import { agentEvents, stallWatch } from './agentstream.mjs';
 import { CATALOG_PROVIDERS, createCatalogs } from './catalogs.mjs';
 import {
-  AUTH_PROVIDERS, AuthStorage, OPENAI_CHATGPT_KEY, apiKeyStorageKeys, claudeCodeEnv, dualAuthProvider, ensureClaudeCodeBinary, getAuthStorageKeys, getContextWindow, getDefaultModel, getModel,
+  AUTH_PROVIDERS, AuthStorage, CHATGPT_USAGE_URL, OPENAI_CHATGPT_KEY, apiKeyStorageKeys, claudeCodeEnv, dualAuthProvider, ensureClaudeCodeBinary, getAuthStorageKeys, getContextWindow, getDefaultModel, getModel,
   getModelsForProvider, getSupportedThinkingLevels, loginChatGPT, ollamaServedContext, parseLocalModelId, pointScale, registerRuntimeModels, resolveClaudeCodeBinary, revokeChatGPTSignIn, signInWithClaudeCode,
   signOutOfClaudeCode, storageKeyProvider,
 } from '@kenkaiiii/gg-core';
@@ -597,8 +597,8 @@ function routeForTurn(text) {
   // What the model taking over is told.
   const was = getModel(prev.split(':').slice(1).join(':'))?.name ?? prev;
   // Why the model they hoped for isn't answering: its limit, or it can't be used (sign-in, key, reach, not on the account).
-  const because = (kind, from, untilText) => (isQuota(kind) ? { reason: 'limit', from, untilText } : { reason: 'unavailable', from, untilText, because: becauseOf(kind) });
-  if (retryInfo) return because(retryInfo.kind, retryInfo.from, retryInfo.untilText);
+  const because = (kind, from, untilText, fix) => (isQuota(kind) ? { reason: 'limit', from, untilText, fix } : { reason: 'unavailable', from, untilText, because: becauseOf(kind) });
+  if (retryInfo) return because(retryInfo.kind, retryInfo.from, retryInfo.untilText, retryInfo.fix);
   if (skipped.length && pick.spec !== prev) {
     const sk = skipped[0], info = limits.infoFor(sk);
     return because(info?.kind ?? 'limit', modelName(sk.model), untilWords(info?.until));
@@ -1309,7 +1309,16 @@ function problem(area, err, ctx = {}) {
   return p;
 }
 // A spoken bubble has room to say where the fix is.
-const aloud = (p) => (p.where === 'model' ? `${p.text} Open the Model page in ${PANEL}.` : p.text);
+const aloud = (p) => (p.where === 'model' ? `${p.text} Open the Model page in ${PANEL}.` : p.where === 'chatgpt' ? `${p.text} ${chatGPTUsageHelp()}` : p.text);
+// ChatGPT lists Roamies as GG Coder (gg-core signs in under that name), and starts each app on a small share of the plan.
+const CHATGPT_LIMIT_HOW = 'under App limits, find Roamies (listed as GG Coder) and set it to 100%. To keep going past your plan, also allow apps to use credits.';
+let usageOpenedAt = 0;
+// Opens ChatGPT's usage settings (at most every 10 minutes, so retries don't stack tabs) and says what to change there.
+function chatGPTUsageHelp() {
+  if (Date.now() - usageOpenedAt < 10 * 60_000) return `In ChatGPT's Settings, Usage, ${CHATGPT_LIMIT_HOW}`;
+  usageOpenedAt = Date.now(); openUrl(CHATGPT_USAGE_URL);
+  return `I opened ChatGPT's usage settings: ${CHATGPT_LIMIT_HOW}`;
+}
 const linked = (p) => ({ code: p.code, copy: p.copy });
 const OS_LINE = `${MAC ? `macOS ${macVersion}` : LINUX ? distro || 'Linux' : `${os.type()} ${os.release()}`} (${process.platform} ${os.arch()})`;
 // from: 'panel' or the setup guide, whichever asked; it hears how the copy went.
@@ -1500,7 +1509,7 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     const stamped = `[${stampNow()}] ${text}${onScreen ? `\n(${onScreen})` : ''}${along}`;
     const nudge = !agentish && !intro && !news && !handoff ? delegateNote(text, crewNow(), config.delegate) : '';
     const toAgent = agentish ? `${stamped}\n(They asked for an agent: call send_agent.)` : nudge ? `${stamped}\n${nudge}` : stamped;
-    const asked = handoff ? `${toAgent}\n${handoffNote({ userName, assistant: lookName(), reason: handoff.reason, from: handoff.from, kind: handoff.kind, words: turnWords, untilText: handoff.untilText, because: handoff.because })}` : toAgent;
+    const asked = handoff ? `${toAgent}\n${handoffNote({ userName, assistant: lookName(), reason: handoff.reason, from: handoff.from, kind: handoff.kind, words: turnWords, untilText: handoff.untilText, because: handoff.because, fix: handoff.fix })}` : toAgent;
     const sent = brief ? `${asked}\n(${brief.note})` : asked;
     // An area snap rides along as an image in the same message.
     const content = image ? [{ type: 'text', text: `${sent}\n(Attached: the area of the screen I ${note ? 'marked' : 'selected'}.${note ? ` ${note}` : ''})` }, image] : sent;
@@ -1611,7 +1620,9 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
       limits.mark(lim.kind === 'missing' ? `${config.provider}:${config.model}` : config.provider, lim.until, lim.kind);
       logLine('limit', { provider: config.provider, model: config.model, kind: lim.kind, until: lim.until });
       if (retryCount < 2 && firstFree(chainOrder(), limits).pick) {
-        retryNext = { text, image, note, byVoice, listenAfter, news, info: { text, from: modelName(config.model), untilText: untilWords(lim.until), kind: lim.kind, count: retryCount + 1 } };
+        // The backup says how to give Roamies more of ChatGPT, since the error that would have isn't shown.
+        const fix = explain('reply', err).where === 'chatgpt' ? chatGPTUsageHelp() : '';
+        retryNext = { text, image, note, byVoice, listenAfter, news, info: { text, from: modelName(config.model), untilText: untilWords(lim.until), kind: lim.kind, count: retryCount + 1, fix } };
       }
     }
     if (retryNext) ui({ kind: 'agent', e: { type: 'done' } });
@@ -1721,7 +1732,7 @@ async function oauthLogin(provider, id = `l${++loginSeq}`) {
     agent = null;
     if (onboarding) { tell({ phase: 'done' }); obState(); }
     else {
-      say(`Signed in to ${PROVIDER_LABELS[provider]}. Let's go!`, 'happy');
+      say(provider === 'openai' ? `Signed in to ChatGPT. One thing: ChatGPT gives me only a small share of your plan at first. In its Settings, Usage, ${CHATGPT_LIMIT_HOW}` : `Signed in to ${PROVIDER_LABELS[provider]}. Let's go!`, 'happy');
       ui({ kind: 'agent', e: { type: 'emote', action: 'hype' } });
     }
   } catch (err) {

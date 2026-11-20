@@ -23,7 +23,7 @@ const AREAS = {
     unknown: () => "Sign-in didn't work (E10). Try again.",
     known: [
       ['E11', /cancell?ed|AbortError/i, () => 'Sign-in cancelled.'],
-      ['E12', (e, s) => e?.name === 'ChatGPTPlanNotEnabledError' || /plan use isn't enabled|access_denied/i.test(s), () => "Your ChatGPT plan can't be used here. Use an API key."],
+      ['E12', (e, s) => e?.name === 'ChatGPTPlanNotEnabledError' || /plan use isn't enabled|access_denied/i.test(s), () => 'Allow Use your ChatGPT plan, or use an API key.'],
       ['E13', /invalid_grant/i, (c) => `${c.who} sign-in didn't finish. Try again.`, true],
       ['E14', /invalid_client|different app registration|didn't finish registering/i, (c) => `${c.who} setup didn't finish. Try again.`, true],
       ['E15', /didn't come back from the browser|closed without a callback|No callback URL|Could not complete the sign-in|local sign-in listener/i, (c) => `${c.who} didn't come back from the browser. Try again.`],
@@ -40,6 +40,11 @@ const AREAS = {
     known: [
       ['E21', /Claude Code is updating/i, () => 'Claude Code is updating. Ask me again in a minute.'],
       ['E22', /not logged in|NotLoggedIn|\b401\b|unauthori[sz]ed|invalid_grant|token refresh failed|authentication_error|(?:invalid|incorrect).{0,6}api.?key/i, (c) => `My ${c.who} login stopped working. Sign in again.`, false, 'model'],
+      // Signed in with ChatGPT: each app gets its own weekly share of the plan (Settings > Usage > App limits), and it can
+      // run out after a prompt or two while the plan itself has plenty left. "unavailable" shares the same message.
+      ['E2B', /subscription_sharing_usage_unavailable/i, () => "ChatGPT couldn't check your plan usage. Try again soon."],
+      ['E2C', /subscription_sharing_usage_limit_exceeded|ChatGPT usage limit reached/i, () => "ChatGPT's limit for me is used up. Raise it in ChatGPT.", false, 'chatgpt'],
+      ['E2D', /subscription_sharing_user_not_eligible|ChatGPT plan use isn't available/i, () => "Your ChatGPT plan can't be used here. Use an API key.", false, 'model'],
       ['E23', /insufficient_quota|credit balance|billing|payment required|\b402\b/i, () => 'This account is out of credit. Top up or switch model.', false, 'model'],
       ['E24', /usage.?limit|quota|rate.?limit|\b429\b|too many requests/i, () => "I've hit this model's usage limit. Pick another model.", false, 'model'],
       ['E25', /context.{0,20}(?:length|window)|prompt is too long|too many tokens|maximum context|exceeds the available context/i, () => 'This chat got too long. Start a new one.'],
