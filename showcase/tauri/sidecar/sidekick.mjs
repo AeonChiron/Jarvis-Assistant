@@ -32,7 +32,7 @@ import { feedbackOf, foldInput, rateTarget, foldPrompt, lessonInput, lessonPromp
 import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
-import { cleanWakeName, wakeName } from './wakename.mjs';
+import { DEFAULT_WAKE_NAME, cleanWakeName, wakeName } from './wakename.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
@@ -2228,7 +2228,7 @@ function menu() {
     { id: 'diagnostics', label: 'Save Diagnostics…', enabled: !diagnosing },
     ...(update.available ? [{ sep: true }, { id: 'install_update', label: update.page ? `Get Roamies ${update.available}…` : update.installing ? `Installing ${update.available}…` : `Install Update ${update.available} and Restart`, enabled: !update.installing }] : []),
     { sep: true },
-    { id: 'quit', label: 'Quit Roamies' },
+    { id: 'quit', label: 'Quit Jarvis Assistant' },
   ];
   send({ type: 'menu', items });
   panel();
@@ -2323,7 +2323,7 @@ const SPEECH_LANGS = ['auto', 'en-US', 'ar-SA', 'he-IL', 'es-ES', 'fr-FR', 'de-D
 const speechLangId = () => (SPEECH_LANGS.includes(config.speechLang) ? config.speechLang : 'auto');
 let langInfo = null; // what the voice helper settled on for it: { id, engine, online }
 const voiceConfig = () => {
-  send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: WAKE_OK && !!config.wakeWord, wakeName: config.wakeName || '', lang: MAC ? speechLangId() : 'auto', ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
+  send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: WAKE_OK && !!config.wakeWord, wakeName: wakeName(config), lang: MAC ? speechLangId() : 'auto', ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
   // The native listening pill beside the cursor stays hidden while the notch capsule is where I appear.
   send({ type: 'pill', on: notchMode() === 'off' });
 };
@@ -2651,7 +2651,7 @@ async function onMenu(id, via) {
   else if (id === 'snoozelisten') { config.snoozeListen = !config.snoozeListen; saveConfig(); menu(); }
   else if (id === 'wakeword' && WAKE_OK) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
   else if (id === 'wakename' && WAKE_OK) {
-    const typed = await ask({ prompt: `Wake word: what should come after "Hey"? (now ${wakeName(config)}; leave empty for Roamies)`, placeholder: 'Jarvis' });
+    const typed = await ask({ prompt: `Wake word: what should come after "Hey"? (now ${wakeName(config)}; leave empty for ${DEFAULT_WAKE_NAME})`, placeholder: 'Jarvis' });
     if (typed == null) return;
     const r = cleanWakeName(typed);
     if (!r.ok) { say(r.why, 'concerned'); return; }

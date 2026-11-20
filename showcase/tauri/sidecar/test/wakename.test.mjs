@@ -16,6 +16,6 @@ for (const bad of ['Bob', 'Mr Jarvis', 'R2D2', 'Jar-vis', 'okay', 'Alexa', 'x'.r
   assert.equal(r.ok, false, `${bad} is refused`);
   assert.ok(r.why.length > 5, 'with a reason');
 }
-assert.equal(wakeName({}), 'Roamies');
+assert.equal(wakeName({}), 'Jarvis', 'Jarvis Assistant wakes to "Hey Jarvis"');
 assert.equal(wakeName({ wakeName: 'Jarvis' }), 'Jarvis');
 console.log('wake name tests: passed');

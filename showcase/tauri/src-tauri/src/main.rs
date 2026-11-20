@@ -796,7 +796,7 @@ fn show_panel(app: &AppHandle, rect: Option<tauri::Rect>, toggle: bool) {
         Some(w) => w,
         None => {
             let b = WebviewWindowBuilder::new(app, PANEL_LABEL, WebviewUrl::App("panel/index.html".into()))
-                .title("Roamies")
+                .title("Jarvis Assistant")
                 .inner_size(PANEL_W, PANEL_H)
                 .resizable(false)
                 .maximizable(false)
@@ -954,7 +954,7 @@ fn open_onboarding(app: &AppHandle, mode: Option<&str>) {
     }
     let url = if chat { "onboarding/index.html?mode=chat" } else { "onboarding/index.html" };
     let mut b = WebviewWindowBuilder::new(app, ONBOARDING_LABEL, WebviewUrl::App(url.into()))
-        .title(if chat { "Get to know you" } else { "Welcome to Roamies" })
+        .title(if chat { "Get to know you" } else { "Welcome to Jarvis Assistant" })
         .inner_size(780.0, 540.0)
         .resizable(false)
         .maximizable(false)
@@ -1146,7 +1146,7 @@ fn build_overlays(app: &AppHandle) -> tauri::Result<()> {
         #[cfg(not(target_os = "linux"))]
         let unmanaged = false;
         let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App("desktop.html".into()))
-            .title("Roamies")
+            .title("Jarvis Assistant")
             .visible(!unmanaged)
             .transparent(true)
             .decorations(false)
@@ -1603,8 +1603,8 @@ fn fallback_menu(app: &AppHandle, status: &str) {
     set_menu(app, &[
         json!({ "id": "status", "label": status, "enabled": false }),
         json!({ "sep": true }),
-        json!({ "id": "restart", "label": "Restart Roamies" }),
-        json!({ "id": "quit", "label": "Quit Roamies" }),
+        json!({ "id": "restart", "label": "Restart Jarvis Assistant" }),
+        json!({ "id": "quit", "label": "Quit Jarvis Assistant" }),
     ]);
 }
 
@@ -1955,12 +1955,12 @@ fn main() {
                 app.set_menu(Menu::default(app.handle())?)?;
             }
 
-            let starting = MenuItem::with_id(app, "status", "Starting Roamies…", false, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit Roamies", true, None::<&str>)?;
+            let starting = MenuItem::with_id(app, "status", "Starting Jarvis Assistant…", false, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit Jarvis Assistant", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&starting, &quit])?;
             // Left click opens the panel; right click shows the short menu.
             let mut tray = TrayIconBuilder::with_id("roamies")
-                .tooltip("Roamies")
+                .tooltip("Jarvis Assistant")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, e| {
