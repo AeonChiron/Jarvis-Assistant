@@ -5,7 +5,12 @@
       "date": "2026-11-20",
       "items": [
         { "kind": "new", "title": "Tell me Good or Wrong", "text": "Rate a reply, or say \"that's wrong, use Firefox\". What I learn shows in Memory." },
-        { "kind": "new", "title": "Menus that show on hover", "text": "I can rest the pointer on a card so its hidden ⋯ menu shows, without opening the card." }
+        { "kind": "new", "title": "Menus that show on hover", "text": "I can rest the pointer on a card so its hidden ⋯ menu shows, without opening the card." },
+        { "kind": "new", "title": "A volume slider", "text": "Speaking has a Volume slider now, so you can turn my voice and sounds down." },
+        { "kind": "new", "title": "Close the panel with X", "text": "The panel has an X button now, for desktops where clicking away didn't close it." },
+        { "kind": "improved", "title": "Up to 8 cards at once", "text": "I keep up to 8 cards on screen now, not 4, before the oldest makes way." },
+        { "kind": "fixed", "title": "Allow buttons stay up", "text": "A new status could wipe the capsule's Allow buttons. They stay now until you answer." },
+        { "kind": "fixed", "title": "No more made up \"Yeah\"", "text": "On Windows and Linux, a click as my mic opened could become \"Yeah\". Not anymore." }
       ]
     },
     {
