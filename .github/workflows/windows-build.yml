@@ -54,7 +54,7 @@ jobs:
       - name: Build the installer (unsigned, no update bundle)
         run: ./build.sh release --target x86_64-pc-windows-msvc --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: roamies-windows-installer
           path: showcase/tauri/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
