@@ -253,6 +253,9 @@
     quitB.setAttribute('aria-pressed', 'true'); quitB.setAttribute('aria-label', 'Confirm: quit Roamies');
     quitTimer = setTimeout(unarmQuit, 4000);
   });
+  const closeB = $('head-close');
+  closeB.innerHTML = pix('x');
+  closeB.addEventListener('click', hide);
   function mark(page, why) {
     const b = $(`nav-${page}`);
     b.classList.toggle('flag', !!why);
