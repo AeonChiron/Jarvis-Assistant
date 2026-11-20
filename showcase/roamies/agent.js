@@ -504,7 +504,8 @@
           if (bb.kind === 'speech') {
             if ('.!?'.includes(ch)) bb.wait = 0.2; else if (ch === ',') bb.wait = 0.08; else if (ch === '\n') bb.wait = 0.25;
             if (ch === '!') { k.sq.kick(3); bb.pop.v += 2.5; }
-            if (/[aeiouy]/i.test(ch)) k.S('blip', 0.85 + (ch.charCodeAt(0) % 7) * 0.06);
+            // The typing blips stand in for a voice: never on top of the real one.
+            if (/[aeiouy]/i.test(ch) && !R.voiceOut?.playing() && !R.voiceOut?.voicing?.()) k.S('blip', 0.85 + (ch.charCodeAt(0) % 7) * 0.06);
             mouthMode = /[aeiouAEIOU]/.test(ch) ? (/[oO]/.test(ch) ? 'talk2' : 'talk1') : /\s/.test(ch) ? null : 'flat';
             mouthT = 0.09;
           } else if (i % 9 === 0) k.S('tick');

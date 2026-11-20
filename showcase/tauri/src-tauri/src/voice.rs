@@ -11,12 +11,14 @@ static SUMMON_ID: AtomicU32 = AtomicU32::new(0);
 /// Id of the registered "ask about an area" hotkey.
 static SNAP_ID: AtomicU32 = AtomicU32::new(0);
 static LIST_ID: AtomicU32 = AtomicU32::new(0);
+/// Id of the talk key's hotkey (Page Up, Page Down or `), when one is used instead of a held pair (0: none).
+static TALK_ID: AtomicU32 = AtomicU32::new(0);
 /// Id of the Esc hotkey, held only while the Roamie is on screen (0 when it isn't).
 static ESC_ID: AtomicU32 = AtomicU32::new(0);
 
 thread_local! {
     // The hotkey manager must live on the main thread; it also owns the current show/hide hotkey.
-    static HOTKEYS: RefCell<Option<(global_hotkey::GlobalHotKeyManager, [Option<global_hotkey::hotkey::HotKey>; 3])>> = const { RefCell::new(None) };
+    static HOTKEYS: RefCell<Option<(global_hotkey::GlobalHotKeyManager, [Option<global_hotkey::hotkey::HotKey>; 4])>> = const { RefCell::new(None) };
     // The overlays that have the Roamie (or its card, or its ask field) on screen right now.
     static ESC_UP: RefCell<std::collections::HashSet<String>> = RefCell::new(std::collections::HashSet::new());
 }
@@ -115,7 +117,7 @@ fn cancel_voice(app: &AppHandle) {
 pub(crate) fn init_hotkeys(app: &AppHandle) {
     use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
     match GlobalHotKeyManager::new() {
-        Ok(m) => HOTKEYS.with(|h| *h.borrow_mut() = Some((m, [None, None, None]))),
+        Ok(m) => HOTKEYS.with(|h| *h.borrow_mut() = Some((m, [None, None, None, None]))),
         Err(e) => return eprintln!("hotkeys unavailable: {e}"),
     }
     let app = app.clone();
@@ -126,6 +128,11 @@ pub(crate) fn init_hotkeys(app: &AppHandle) {
         let summon = e.id() == SUMMON_ID.load(Ordering::Relaxed);
         let snap = e.id() == SNAP_ID.load(Ordering::Relaxed);
         let list = e.id() == LIST_ID.load(Ordering::Relaxed);
+        if e.id() != 0 && e.id() == TALK_ID.load(Ordering::Relaxed) {
+            // The talk key: the first press listens hands-free, the next sends (so does a pause).
+            to_voice(&app, &json!({ "cmd": "toggle" }));
+            return;
+        }
         let esc = e.id() != 0 && e.id() == ESC_ID.load(Ordering::Relaxed);
         if esc {
             // The panel has the keyboard: Esc closes it, as it would without this hotkey.
@@ -158,12 +165,12 @@ pub(crate) fn init_hotkeys(app: &AppHandle) {
     }));
 }
 
-/// Swaps one global shortcut (0 = show/hide, 1 = ask about an area, 2 = show the list). On failure (bad format, or
-/// another app owns it) the old one stays.
+/// Swaps one global shortcut (0 = show/hide, 1 = ask about an area, 2 = show the list, 3 = the talk key). On failure
+/// (bad format, or another app owns it) the old one stays.
 pub(crate) fn set_hotkey(slot: usize, accel: &str) -> Result<(), String> {
     use global_hotkey::hotkey::HotKey;
     let new: HotKey = accel.parse().map_err(|e| format!("{e}"))?;
-    let id_slot = [&SUMMON_ID, &SNAP_ID, &LIST_ID][slot];
+    let id_slot = [&SUMMON_ID, &SNAP_ID, &LIST_ID, &TALK_ID][slot];
     HOTKEYS.with(|h| {
         let mut h = h.borrow_mut();
         let Some((manager, keys)) = h.as_mut() else { return Err("hotkeys unavailable".to_string()) };
@@ -191,6 +198,19 @@ pub(crate) fn set_hotkey(slot: usize, accel: &str) -> Result<(), String> {
             }
         }
     })
+}
+
+/// Lets go of a shortcut slot (the talk key, when a held pair is picked instead).
+pub(crate) fn clear_hotkey(slot: usize) {
+    let id_slot = [&SUMMON_ID, &SNAP_ID, &LIST_ID, &TALK_ID][slot];
+    HOTKEYS.with(|h| {
+        let mut h = h.borrow_mut();
+        let Some((manager, keys)) = h.as_mut() else { return };
+        if let Some(old) = keys[slot].take() {
+            let _ = manager.unregister(old);
+        }
+        id_slot.store(0, Ordering::Relaxed);
+    });
 }
 
 /// Esc stops the Roamie's answer, or sends it away when it's idle (overlay host.js decides which). Global, so it

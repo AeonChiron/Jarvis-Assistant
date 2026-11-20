@@ -35,11 +35,16 @@ export const seesPointer = (platform, session) => platform !== 'linux' || sessio
  *  user binds keys to `roamies --summon`, `--talk` and the rest in the desktop's keyboard settings. */
 export const hasHotkeys = (platform, session) => platform !== 'linux' || session === 'x11';
 
+/** One key that talks on its own (Windows): press to listen hands-free, press again (or pause) to send. The shell holds
+ *  it as a global hotkey, so the app in front doesn't also get it. */
+export const TALK_KEYS = ['PageUp', 'PageDown', 'Backquote'];
 /** The pairs offered for the talk keys (held to talk), the default first: the setup guide's lists. On a PC no Win key
- *  (letting go of it opens Start) and no Alt+Shift (it switches keyboard layout). */
+ *  (letting go of it opens Start) and no Alt+Shift (it switches keyboard layout); Windows also offers one talk key. */
 export const talkChords = (platform) => (platform === 'darwin'
   ? [['control', 'option'], ['option', 'command'], ['control', 'command'], ['control', 'shift'], ['option', 'shift']]
-  : [['control', 'option'], ['control', 'shift']]);
+  : [['control', 'option'], ['control', 'shift'], ...(platform === 'win32' ? TALK_KEYS.map((k) => [k]) : [])]);
+/** A talk setting that's one key (Page Up…) rather than a held pair. */
+export const isTalkKey = (t) => Array.isArray(t) && t.length === 1 && TALK_KEYS.includes(t[0]);
 
 /** The pairs offered for the type-to-ask shortcut (a quick tap of two modifier keys), the default first. The setup
  *  guide's rule for the talk keys: on a PC no Win key (it opens Start) and no Alt+Shift (it switches keyboard layout). */

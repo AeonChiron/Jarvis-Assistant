@@ -28,7 +28,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 
 use sidecar::spawn_sidecar;
-use voice::{init_hotkeys, set_esc, set_hotkey, start_voice, stop_voice, to_voice, voice_binary};
+use voice::{clear_hotkey, init_hotkeys, set_esc, set_hotkey, start_voice, stop_voice, to_voice, voice_binary};
 
 static GENERATION: AtomicUsize = AtomicUsize::new(0);
 /// The overlay window the sidekick lives in. It moves to whichever screen the cursor is on.
@@ -1747,9 +1747,25 @@ fn handle_sidecar(app: &AppHandle, msg: Value) {
             }
             if let Some(mods) = msg.get("talk").and_then(Value::as_array) {
                 let mods: Vec<String> = mods.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect();
-                if mods.len() == 2 {
-                    *app.state::<TalkChord>().0.lock().unwrap() = mods.clone();
-                    to_voice(app, &json!({ "cmd": "chord", "mods": mods }));
+                // A held pair of modifiers (the voice helper watches it), or one key (Page Up, Page Down, `) held here
+                // as a global hotkey that starts and sends a hands-free take.
+                let applied = match mods.as_slice() {
+                    [_, _] => {
+                        clear_hotkey(3);
+                        Ok(())
+                    }
+                    [key] => set_hotkey(3, key),
+                    _ => Err("the talk keys are two modifier keys or one key".to_string()),
+                };
+                match applied {
+                    Ok(()) => {
+                        *app.state::<TalkChord>().0.lock().unwrap() = mods.clone();
+                        to_voice(app, &json!({ "cmd": "chord", "mods": mods }));
+                    }
+                    Err(e) => {
+                        eprintln!("talk keys {mods:?}: {e}");
+                        to_sidecar(app, &json!({ "type": "keybind_error", "which": "talk", "accel": mods.join("+"), "error": e }));
+                    }
                 }
             }
             // The type-to-ask pair; none sent (Wayland) switches the tap off.

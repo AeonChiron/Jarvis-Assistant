@@ -52,6 +52,8 @@
   };
 
   const play = (m) => {
+    // A reply that's already over (stopped with Esc, or replaced): its chunks still in flight never start it again.
+    if (over.has(m.id)) return;
     const a = ctx();
     if (m.id !== id) { stop(); id = m.id; secs = 0; sched = []; if (!late) lead = Math.max(LEAD, lead * 0.75); late = false; }
     const b = pcm(m.pcm, m.rate || 44100), s = a.createBufferSource();
@@ -84,6 +86,8 @@
       if (m.pcm) play(m);
     },
     playing: () => !!ac && ac.state === 'running' && live.length > 0 && ac.currentTime < endAt + 0.05,
+    // A spoken reply is under way: from its first chunk until its end, pauses between sentences included.
+    voicing: () => !!id && !over.has(id),
     cps: () => rate,
     // The feeling in what's being said right now (null: none, or nothing playing).
     feel() {
