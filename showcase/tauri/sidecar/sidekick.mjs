@@ -93,7 +93,7 @@ const say = (text, mood) => (onboarding ? ob({ kind: 'say', text, mood }) : ui({
 const sayOut = say;
 
 const VERSION = process.env.ROAMIES_VERSION || '0.0.0';
-const UPDATE_REPO = 'KenKaiii/Roamies';
+const UPDATE_REPO = 'AeonChiron/Roamies'; // Jarvis Assistant's own releases (signed with its own update key)
 const HOME = os.homedir();
 // The chat works from ~/Roamies: commands run there and files given without a full path land there (Data/ and
 // Skills/ inside it stay write-protected by safety.mjs). Made up front so Claude Code always has a folder to start in.

@@ -37,10 +37,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0MEI0NTJGMEY1NkNGNUYKUldSZnoxWVBMMFVMMUlXK2ROU3YyaDJVZy9scW56d081dEZwelE0SFBQeFVSVXRVYnZyY3BSd0cK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0RERCM0MyMjVCOUI4QjcKUldTM3VMa2x3clBkcEdGUmVXWUhLWnRpZ2dySjJ6ZE9SQUNOOXJoYk5ndGpxWkdqdXpJeWl3V04K",
       "endpoints": [
-        "https://github.com/KenKaiii/Roamies/releases/latest/download/latest.json",
-        "https://raw.githubusercontent.com/KenKaiii/Roamies/updates/latest.json"
+        "https://github.com/AeonChiron/Roamies/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
