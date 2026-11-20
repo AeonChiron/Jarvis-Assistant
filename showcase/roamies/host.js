@@ -473,10 +473,10 @@
       Roamie.sfx?.play('heard');
     } else if (m.type === 'state' && m.state === 'idle') {
       // Nothing was heard (or it was cancelled): no answer is coming for that talk.
-      if (m.cancelled || !heardText) { waveTurn = false; if (notchOn() && !responding) N().close(); }
+      if (m.cancelled || !heardText) { waveTurn = false; if (notchOn() && !responding && !ask) N().close(); }
       // Heard, but no turn ever started (or it never ended): don't leave 'Thinking' up for good.
       // Only for this take: a newer one (talking again within the 20 s) keeps its capsule.
-      else if (notchOn()) { const take = listenTake; setTimeout(() => { if (take === listenTake && !responding && Roamie.notch?.active) N().close(); }, 20000); }
+      else if (notchOn()) { const take = listenTake; setTimeout(() => { if (take === listenTake && !responding && !ask && Roamie.notch?.active) N().close(); }, 20000); }
       heardText = false;
       listen?.close(); listen = null;
       if (heard) { const h = heard; setTimeout(() => { if (heard === h) { h.close(); heard = null; } }, 4000); }

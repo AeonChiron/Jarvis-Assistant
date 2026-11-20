@@ -797,20 +797,23 @@
     // Where replies show: 'capsule' (default) or 'cursor' (the sidekick's bubble; the capsule shows the state only).
     replies: 'capsule',
     // Replies at the cursor: the capsule shows it's answering, the words are elsewhere.
-    replying() { st.tokAt = performance.now(); st.lingerAt = 0; if (st.mode !== 'talk') setMode('reply', 'Answering'); show(); },
+    // While an Allow question waits, nothing else takes the card: what comes meanwhile shows once it's answered.
+    replying() { if (st.prompt) return; st.tokAt = performance.now(); st.lingerAt = 0; if (st.mode !== 'talk') setMode('reply', 'Answering'); show(); },
     // The answer is being drawn on screen: the capsule folds its text away (one place for the answer) and says so.
     // A click on the pill still opens the text.
-    yieldTo(words) { st.folded = true; st.lingerAt = 0; setMode('tool', words || 'Showing you'); show(); refit(); },
+    yieldTo(words) { if (st.prompt) return; st.folded = true; st.lingerAt = 0; setMode('tool', words || 'Showing you'); show(); refit(); },
     // A new request: clears the last reply, then thinks.
     begin() { fresh(); this.think(); },
     think(text) {
+      if (st.prompt) return;
       if (closing() || st.lingerAt) fresh();
       st.lingerAt = 0;
       if (st.mode !== 'tool' || text == null) setMode('think', 'Thinking');
       show();
     },
-    tool(words) { if (closing() || st.lingerAt) fresh(); st.lingerAt = 0; setMode('tool', words || 'Working'); show(); },
+    tool(words) { if (st.prompt) return; if (closing() || st.lingerAt) fresh(); st.lingerAt = 0; setMode('tool', words || 'Working'); show(); },
     text(chunk) {
+      if (st.prompt) { st.reply = (st.reply ?? '') + chunk; return; }
       if (closing()) fresh();
       st.lingerAt = 0;
       if (!st.text) chunk = String(chunk).replace(/^\s+/, '');
@@ -822,6 +825,8 @@
       // A turn cut short by talking again ends while the mic is already on: the capsule stays listening.
       if (st.mode === 'listen' && st.open) return;
       st.speech = speech ?? null;
+      // Regression: lingering under a prompt let the next status wipe the Allow buttons. Answering it lingers instead.
+      if (st.prompt) return;
       if (!st.text && !st.prompt) { close(); return; }
       if (!st.prompt && !st.folded && st.mode !== 'talk' && st.mode !== 'error') setMode('done', '');
       if (st.text && !st.prompt && st.mode !== 'error') announce(st.text);
@@ -834,9 +839,9 @@
       setMode('error', 'Couldn’t finish'); render(); show(); linger(); announce(st.text);
     },
     // A line on its own (a reminder, a greeting): out, said, back in.
-    say(text) { if (R.notch._busy?.() && st.text) return; st.text = ''; this.text(text); this.done(); },
+    say(text) { if (st.prompt || (R.notch._busy?.() && st.text)) return; st.text = ''; this.text(text); this.done(); },
     // The reply moved to the research card: the capsule stops showing it.
-    reset() { st.text = ''; st.heard = ''; render(); },
+    reset() { if (st.prompt) { st.reply = ''; return; } st.text = ''; st.heard = ''; render(); },
     // Allow / Don't allow. onChoose(i): the first answers yes. The host's hidden field still takes Y, N, Tab, Enter.
     prompt(question, choices, onChoose) {
       if (closing()) fresh();

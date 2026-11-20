@@ -121,4 +121,26 @@ R.notch.close(); flush(); frames();
   R.notch.close(); flush(); frames(); R.notch.text('a new reply'); frames();
   assert.equal(t.scrollTop, 1000, 'a new reply starts at its newest line');
 }
+// Regression: on the capsule the Allow buttons sometimes vanished while the question still waited. A turn that ended
+// (or a line said) under the prompt started it lingering, and the next status (a tool, thinking) then wiped the card.
+R.notch.close(); flush(); frames();
+{
+  const choices = capsule.querySelector('.nc-choices');
+  let chose = -1;
+  R.notch.think();
+  const h = R.notch.prompt('Open Notepad?', ['Allow', "Don't allow"], (i) => { chose = i; });
+  R.notch.done();
+  R.notch.tool('Searching');
+  R.notch.think();
+  R.notch.text('More words.');
+  R.notch.say('A reminder.');
+  frames();
+  assert.equal(choices.hidden, false, 'the Allow buttons stay while the question waits');
+  assert.equal(R.notchHit(100, 20), true, 'and still take clicks');
+  assert.equal(capsule.dataset.mode, 'ask', 'it still says it needs an OK');
+  assert.match(capsule.querySelector('.nc-text').children.map((c) => c.textContent).join('\n'), /^Open Notepad\?$/, 'the question stays as asked');
+  h.close();
+  assert.equal(choices.hidden, true, 'answered, they go');
+  assert.match(capsule.querySelector('.nc-text').children.map((c) => c.textContent).join('\n'), /More words\./, 'the words that came meanwhile show after');
+}
 console.log('notch tests: passed');
