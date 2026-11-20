@@ -532,7 +532,7 @@
       if (m.step) {
         const [x, y, w, h] = m.step.bounds, o = Roamie.origin ?? { x: 0, y: 0 }, px = x + w / 2 - o.x, py = y + h / 2 - o.y;
         // A spot on another display isn't this overlay's to show.
-        if (px >= 0 && py >= 0 && px <= innerWidth && py <= innerHeight) { hand?.begin(); hand?.at(px, py); }
+        if (px >= 0 && py >= 0 && px <= innerWidth && py <= innerHeight) { hand?.begin(); hand?.at(px, py, { tap: !m.step.hover }); }
       } else if (m.borrow) hand?.begin();
       else { handsBusy = !!m.on; if (handsBusy) setHot(false); else hand?.end(); }
       return;

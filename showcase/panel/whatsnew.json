@@ -1,6 +1,13 @@
 {
   "updates": [
     {
+      "version": null,
+      "date": "2026-11-20",
+      "items": [
+        { "kind": "new", "title": "Menus that show on hover", "text": "I can rest the pointer on a card so its hidden ⋯ menu shows, without opening the card." }
+      ]
+    },
+    {
       "version": "0.1.45",
       "date": "2026-11-20",
       "items": [

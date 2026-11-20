@@ -86,6 +86,8 @@ if (process.platform === 'darwin') {
   assert.match(actInApp, /youtube\.com\/results\?search_query=/);
   // ...but when the user asks for the page's own search box, it uses the box.
   assert.match(actInApp, /unless the user asks you to use the box: then fill it/);
+  // Regression: a card's Delete only shows on hover, and clicking the card opened its page instead.
+  assert.match(actInApp, /only show when the pointer is over something.*\{do:'hover', text, near\}/);
 }
 
 // Linux: apps are opened by name through their .desktop files.
