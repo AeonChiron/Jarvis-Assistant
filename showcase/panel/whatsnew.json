@@ -1,6 +1,13 @@
 {
   "updates": [
     {
+      "version": null,
+      "date": "2026-11-20",
+      "items": [
+        { "kind": "fixed", "title": "New look, new name", "text": "After switching looks mid chat, I could still think I was the old one. Not anymore." }
+      ]
+    },
+    {
       "version": "0.1.46",
       "date": "2026-11-20",
       "items": [
