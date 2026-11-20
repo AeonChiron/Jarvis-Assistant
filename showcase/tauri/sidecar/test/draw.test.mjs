@@ -153,11 +153,11 @@ console.log('shape radius tests: passed');
   // Regression: eight cards in one drawing filled the screen and the last was drawn on top of the first. Only a
   // few stay up: the oldest are forgotten (screen marks and cards that don't count are left alone).
   const q = createParts();
-  q.assign([{ marks: [{ kind: 'ring', at: { name: 'Export' } }, ...['a', 'b', 'c', 'd', 'e', 'f'].map((text) => ({ kind: 'note', text }))] }]);
+  q.assign([{ marks: [{ kind: 'ring', at: { name: 'Export' } }, ...'abcdefghij'.split('').map((text) => ({ kind: 'note', text }))] }]);
   assert.deepEqual(q.trimCards(LIMITS.cardsShown, (id) => id === 'p2'), ['p3'], 'the oldest card that counts goes');
-  assert.deepEqual(q.ids, ['p1', 'p2', 'p4', 'p5', 'p6', 'p7']);
+  assert.deepEqual(q.ids, ['p1', 'p2', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11']);
   assert.deepEqual(q.trimCards(LIMITS.cardsShown), ['p2'], 'now p2 counts too');
-  assert.deepEqual(q.trimCards(LIMITS.cardsShown), [], 'four cards: nothing to close');
+  assert.deepEqual(q.trimCards(LIMITS.cardsShown), [], `${LIMITS.cardsShown} cards: nothing to close`);
   // The overlay closes them by the same number.
   const { readFileSync } = await import('node:fs');
   assert.ok(readFileSync(new URL('../../../roamies/ink.js', import.meta.url), 'utf8').includes(`const MAX_CARDS = ${LIMITS.cardsShown};`), 'the overlay and the sidecar agree on how many cards stay up');
