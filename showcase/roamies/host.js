@@ -408,7 +408,8 @@
         if (research) panel()?.end(fromWeb ? 'From the web' : 'Answer');
         research = waveTurn = false;
         endTalk();
-        if (notchOn()) N().done({ speech: e.speech });
+        // A request that did something can be rated: Good or Wrong under the reply (the sidecar learns from it).
+        if (notchOn()) N().done({ speech: e.speech, ...(e.rate ? { rate: (good) => send({ type: 'feedback', good }) } : {}) });
         if (e.listen) waitThenListen(e.listen);
         reportSaid(e.speech);
         break;
@@ -537,11 +538,20 @@
       else { handsBusy = !!m.on; if (handsBusy) setHot(false); else hand?.end(); }
       return;
     }
-    if (m.kind === 'greet') { getAgent().act('wave'); return; }
+    // Launch (and the relaunch after an update): the capsule says hi when it's on, else the Roamie waves by the cursor.
+    if (m.kind === 'greet') { if (notchOn()) N().hello(); else getAgent().act('wave'); return; }
     if (m.kind === 'intro') { if (capR()) N().say(m.text); else getAgent().intro(m.x, m.text); return; }
     if (m.kind === 'esc') { onEsc(); return; }
     if (m.kind === 'summon') {
-      // ⌃⌥S toggles; the menu's Show Sidekick only ever shows.
+      // ⌃⌥S toggles; the menu's Show Sidekick only ever shows. With the capsule on, it's the capsule that comes out.
+      if (notchOn()) {
+        if (!N().active) N().hello();
+        else if (!m.show) {
+          if (responding || Roamie.voiceOut?.playing()) { send({ type: 'menu', id: 'stop', via: 'hide' }); Roamie.voiceOut?.stop(); }
+          N().close();
+        }
+        return;
+      }
       const a = getAgent();
       if (m.show || !a.visible) { if (a.show({ summoned: true })) a.act('wave'); }
       else {

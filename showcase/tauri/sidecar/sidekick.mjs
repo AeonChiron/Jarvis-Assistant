@@ -28,7 +28,7 @@ import {
   addFact, applySynced, syncSnapshot, DIR as STORE_DIR, repeatLabel, startOfDay, applyFold, approxTokens, archiveFolded, clearFacts, clearFinished, compactTrigger, fitContext, flushWrites, forgetFact, isSummary, listItems, listFacts, nextDue, pickFacts, planFold,
   touchFacts, forDisk, forProvider, loadLatestSession, newSession, openCommitments, pruneSessions, readJson, saveSession, takeDueReminders, updateCommitment, writeJson,
 } from './store.mjs';
-import { foldInput, foldPrompt, memoryInput, memoryPrompt, oneShot, parseBrain, parseSkill, shouldLearn, skillInput, skillPrompt, soundsWrong, transcript } from './brain.mjs';
+import { feedbackOf, foldInput, rateTarget, foldPrompt, lessonInput, lessonPrompt, memoryInput, memoryPrompt, oneShot, parseBrain, parseLesson, parseSkill, shouldLearn, skillInput, skillPrompt, soundsWrong, transcript } from './brain.mjs';
 import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
@@ -1193,15 +1193,22 @@ function queueLearn(messages, used) {
   pendingLearn.timer.unref?.();
 }
 function dropLearn() { if (pendingLearn) { clearTimeout(pendingLearn.timer); pendingLearn = null; } }
-// Their next message arrived: learn from the last request unless it says that one went wrong.
+// Their next message arrived: a rating of the last request goes to onFeedback; otherwise learn from it unless the
+// message says that one went wrong.
 function nextMessageLearn(words) {
-  if (!pendingLearn || !words) return;
+  if (!words) return;
+  const kind = feedbackOf(words);
+  if (kind) { onFeedback(kind, words, 'said'); return; }
+  if (!pendingLearn) return;
   if (soundsWrong(words)) { logLine('skill_learn', { skipped: 'corrected' }); dropLearn(); return; }
   runLearn('next');
 }
 async function runLearn(why) {
   const p = pendingLearn; dropLearn();
-  if (!p || !config.model || config.learnSkills === false) return;
+  if (p) await skillPass(p, why);
+}
+async function skillPass(p, why) {
+  if (!config.model || config.learnSkills === false) return;
   const t0 = Date.now();
   try {
     const used = p.used.map((n) => readSkill(n)).filter(Boolean);
@@ -1216,10 +1223,63 @@ async function runLearn(why) {
   }
 }
 
+// ---------- feedback ----------
+// "Good" or "Wrong" on the last request that used tools (the capsule's buttons, or said or typed). Good keeps a
+// how-to from it with a lower bar; Wrong runs the lesson pass (brain.mjs), which may keep a fact or fix a skill.
+const RATE_MS = 30 * 60_000;
+let lastRequest = null; // { messages, used, ok, bad, saved, at, rated }
+const learningOn = () => !config.lite && !!config.model && config.learnSkills !== false;
+const rateable = () => (lastRequest && Date.now() - lastRequest.at < RATE_MS ? lastRequest : null);
+function onFeedback(kind, text = '', via = 'said') {
+  const r = rateable();
+  if (kind === 'wrong') dropLearn();
+  if (!r || r.rated === kind) { logLine('feedback', { kind, via, skipped: r ? 'again' : 'nothing to rate' }); return; }
+  r.rated = kind;
+  logLine('feedback', { kind, via, tools: r.ok + r.bad });
+  if (!learningOn()) return;
+  if (kind === 'wrong') { if (text) lessonPass(r, text); return; } // the button asks first (wrongButton)
+  if (pendingLearn?.messages === r.messages) dropLearn(); // learned now, with the praise
+  if (r.used.length) { logLine('skill_learn', { why: 'praised', confirmed: r.used }); return; } // the skill it followed worked
+  if (shouldLearn({ okTools: r.ok, errors: r.bad, saved: r.saved, praised: true })) skillPass(r, 'praised');
+}
+// Wrong from the capsule, with nothing said: ask what it should have done, then redo it that way and learn from it.
+async function wrongButton() {
+  const r = rateable();
+  if (r?.rated === 'wrong') return; // already told (and said why)
+  onFeedback('wrong', '', 'button');
+  if (!r) return;
+  barAsk?.abort();
+  const ctl = barAsk = new AbortController();
+  const text = (await ask({ placeholder: 'What should I have done?', bar: true }, ctl.signal))?.trim();
+  if (barAsk === ctl) barAsk = null;
+  if (!text) return;
+  enqueue(`That wasn't right: ${text}`, { interrupt: true });
+  if (learningOn()) lessonPass(r, text);
+}
+async function lessonPass(r, correction) {
+  const t0 = Date.now();
+  try {
+    const facts = listFacts();
+    const used = r.used.map((n) => readSkill(n)).filter(Boolean);
+    const { text, model } = await oneShot({ ...(await sideRoute()), system: lessonPrompt(userName), text: lessonInput({ facts, index: skillIndex(), used, turns: transcript(r.messages, userName, stripNote).slice(-12_000), correction }) });
+    const out = parseLesson(text, { knownIds: facts.map((f) => f.id) });
+    let skill = null;
+    if (out.fact) { await learnFacts([out.fact]); activity.noted(out.fact.text); }
+    if (out.skill) {
+      try { const s = await saveSkill(out.skill); activity.learned(s.name, !s.created); skill = s.slug; } // checkSkill runs here
+      catch (e) { logLine('lesson_skill_refused', { error: String(e?.message ?? e).slice(0, 300) }); }
+    }
+    if (out.fact || skill) panel();
+    logLine('lesson', { model, ms: Date.now() - t0, fact: !!out.fact, replaced: !!out.fact?.replaces, skill });
+  } catch (e) {
+    logLine('lesson_failed', { ms: Date.now() - t0, error: String(e?.message ?? e).slice(0, 300) });
+  }
+}
+
 /** Starts a clean conversation; the one ending gets a memory pass (`why` names it in the log). */
 function freshSession(why) {
   const old = session;
-  session = newSession(config.provider, config.model); liveBlocks.clear(); agent = null; pendingFold = null; lastInput = null; quizDone = null; pruneSessions();
+  session = newSession(config.provider, config.model); liveBlocks.clear(); agent = null; pendingFold = null; lastInput = null; quizDone = null; lastRequest = null; pruneSessions();
   return why && old?.messages.length ? memoryPass(old, why) : Promise.resolve([]);
 }
 
@@ -1395,7 +1455,7 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
   turnVoice = voice;
   if (voice && intro) guideVoices.add(voice.id);
   const spoken = voice && new SpeechText((t) => voice.say(t), speech.localOpts?.());
-  let stalled = false, watch = null, learnAfter = false;
+  let stalled = false, watch = null, learnAfter = false, rated = false, learn = null;
   try {
     // Voice: a short first line before a tool ("On it, checking Paris.") is a beat: it's spoken, but not
     // shown, so the card or bubble starts with the answer. It shows after all if no tool follows.
@@ -1426,7 +1486,7 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     requestNo = turn;
     logLine('request', { turn, model: config.model, chars: text.length, image: !!image, session: session?.id });
     const use = { t: Date.now(), model: config.model, calls: 0, tools: 0, in: 0, cacheRead: 0, cacheWrite: 0, out: 0 };
-    const learn = { ok: 0, bad: 0, saved: false }; // for the skill pass: tools that worked, ones that failed
+    learn = { ok: 0, bad: 0, saved: false }; // for the skill pass: tools that worked, ones that failed
     const soon = frontSoon; frontSoon = null;
     frontNow = await frontWithin(soon && Date.now() - soon.at < 8000 ? soon.p : whereNow());
     // The first spoken request of the day carries the morning briefing (brief.mjs).
@@ -1531,7 +1591,9 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     // A reminder nudge, with "Listen after reminders" on: the same hands-free listen, for "snooze 10 minutes".
     const listen = !stalled && !controller.signal.aborted && ((byVoice && autoListenOn() && listensAfter(lastReply, config.listenEvery)) || (listenAfter && snoozeListenOn())) ? { turn, speech: voice?.id ?? null } : null;
     autoTurn = listen ? turn : null;
-    ui({ kind: 'agent', e: stalled ? { type: 'error', message: stallMessage(), speech: voice?.id ?? null } : { type: 'done', speech: voice?.id ?? null, ...(listen ? { listen } : {}) } });
+    rated = !stalled && !controller.signal.aborted && !!turnWords && learn.ok + learn.bad > 0;
+    const rate = rated && learningOn();
+    ui({ kind: 'agent', e: stalled ? { type: 'error', message: stallMessage(), speech: voice?.id ?? null } : { type: 'done', speech: voice?.id ?? null, ...(listen ? { listen } : {}), ...(rate ? { rate } : {}) } });
     logUsage({ ...use, ms: Date.now() - use.t });
     learnAfter = !config.lite && shouldLearn({ on: config.learnSkills !== false, okTools: learn.ok, errors: learn.bad, aborted: stalled || controller.signal.aborted, system: !turnWords, saved: learn.saved });
     logLine('request_done', { turn, ms: Date.now() - use.t, calls: use.calls, tools: use.tools, in: use.in, cacheRead: use.cacheRead, cacheWrite: use.cacheWrite, out: use.out });
@@ -1566,7 +1628,16 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     for (const id of activity.stopped()) ui({ kind: 'agent', e: { type: 'tool_end', id, isError: true } });
     syncSession();
     // This request's turns, once they're in the session: the skill pass may learn from them (after their next message).
-    if (learnAfter && session) { const from = session.messages.findLastIndex((m) => m.role === 'user'); if (from >= 0) queueLearn(session.messages.slice(from), [...skillsUsed]); }
+    let req = null;
+    if ((learnAfter || rated) && session) {
+      const from = session.messages.findLastIndex((m) => m.role === 'user');
+      if (from >= 0) {
+        const messages = session.messages.slice(from), used = [...skillsUsed];
+        if (rated) req = { messages, used, ok: learn.ok, bad: learn.bad, saved: learn.saved, at: Date.now(), rated: null };
+        if (learnAfter) queueLearn(messages, used);
+      }
+    }
+    lastRequest = rateTarget(lastRequest, { req, rated: !!req, theirs: !!turnWords });
     if (stalled) agent = null; // the next request starts on a fresh connection, from the saved conversation
     // No usage reported: estimate what the last call sent.
     if (!lastInput && session) lastInput = { session: session.id, tokens: approxTokens(session.messages) + Math.round(system().length / 3.6), measured: false };
@@ -2821,6 +2892,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     logLine('auto_listen', { turn: m.turn });
     send({ type: 'listen', wait: autoListenOn() ? listenSecs() : 8 });
   }
+  else if (m.type === 'feedback') { if (m.good === true) onFeedback('good', '', 'button'); else wrongButton().catch((e) => console.error('feedback', e)); }
   else if (m.type === 'reply_said') { if (!busy) { holdWake(false); saidPending = false; clearTimeout(saidCap); stir(); } }
   else if (m.type === 'listen_cancel') { autoTurn = null; send({ type: 'listen_cancel' }); } // Esc while the mic is on
   // A link clicked on the research card: web and mail links only.
