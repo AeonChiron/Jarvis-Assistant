@@ -1,7 +1,7 @@
 {
   "updates": [
     {
-      "version": null,
+      "version": "0.1.46",
       "date": "2026-11-20",
       "items": [
         { "kind": "new", "title": "Tell me Good or Wrong", "text": "Rate a reply, or say \"that's wrong, use Firefox\". What I learn shows in Memory." },
