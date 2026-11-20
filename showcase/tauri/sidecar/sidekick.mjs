@@ -54,7 +54,7 @@ import { GEMINI_CHOICES, GEMINI_DEFAULT_VOICE, GEMINI_LOOK_VOICES, GEMINI_MODEL,
 import { createSecrets, retryLoad, runInput } from './secrets.mjs';
 import { showTrayIcon } from './wintray.mjs';
 import { createActivity } from './activity.mjs';
-import { canCircle, canSnap, cleanMics, talkChords, hasHands, hasHotkeys, hasVoice, hasWakeWord, linuxSession, micTrouble, needsVoiceModel, platformLine, samePair, seesPointer, writeChord, writeChords } from './platform.mjs';
+import { canCircle, canSnap, cleanMics, isTalkKey, talkChords, hasHands, hasHotkeys, hasVoice, hasWakeWord, linuxSession, micTrouble, needsVoiceModel, platformLine, samePair, seesPointer, writeChord, writeChords } from './platform.mjs';
 import { openAuth, accountKeys, fallbackModel, keyCards, keyKinds, seesImages, signInCards } from './providers.mjs';
 import { OLLAMA, connectLocal, contextNote, downNote, forgetLocal, isSmallModel, newServer, noModelsNote, serverFor, serverList, syncLocal as syncServers, withWindow } from './local.mjs';
 import { activityLogs, buildReport, redact, reportDir, reportName, reveal, run, scrubConfig, tail } from './diagnostics.mjs';
@@ -307,13 +307,15 @@ const MOD_WORD = process.platform === 'darwin'
 const keys = () => { const k = { ...DEFAULT_KEYS, ...(config.keys ?? {}) }; return { ...k, write: writeChord(process.platform, k.talk, k.write) }; };
 const sortMods = (m) => [...m].sort((a, b) => MOD_ORDER.indexOf(a) - MOD_ORDER.indexOf(b));
 const talkSymbols = () => (process.platform === 'darwin' ? sortMods(keys().talk).map((m) => MOD_SYMBOL[m]).join('') : talkWords());
-const talkWords = () => sortMods(keys().talk).map((m) => MOD_WORD[m]).join('+');
-const pairWords = (pair) => sortMods(pair).map((m) => MOD_WORD[m]).join('+');
+const KEY_WORD = { PageUp: 'Page Up', PageDown: 'Page Down', Backquote: '`' };
+const talkWords = () => pairWords(keys().talk);
+const pairWords = (pair) => sortMods(pair).map((m) => MOD_WORD[m] ?? KEY_WORD[m] ?? m).join('+');
 const pairSymbols = (pair) => (process.platform === 'darwin' ? sortMods(pair).map((m) => MOD_SYMBOL[m]).join('') : pairWords(pair));
 // The type-to-ask pair; '' when its tap is off.
 const writeWords = () => (keys().write ? pairWords(keys().write) : '');
 const writeSymbols = () => (keys().write ? pairSymbols(keys().write) : '');
-const validTalk = (t) => Array.isArray(t) && t.length === 2 && new Set(t).size === 2 && t.every((m) => MOD_ORDER.includes(m));
+const validTalk = (t) => (Array.isArray(t) && t.length === 2 && new Set(t).size === 2 && t.every((m) => MOD_ORDER.includes(m)))
+  || (process.platform === 'win32' && isTalkKey(t));
 // Accelerators look like "Control+Alt+KeyS": at least one of Control/Alt/Command, then one key code.
 const validSummon = (a) => typeof a === 'string' && /^((Control|Alt|Shift|Command)\+)+[A-Za-z0-9]+$/.test(a) && /(Control|Alt|Command)\+/.test(a);
 // The shell watches for the type-to-ask tap itself; on Wayland it can't see the keys, so it gets no pair.
@@ -322,7 +324,7 @@ function applyKeys(m) {
   const now = keys(), next = { ...now };
   // Talk and type-to-ask never share a pair: picking the pair the other one has swaps the two.
   if (m.talk !== undefined) {
-    if (!validTalk(m.talk)) return 'Pick two different modifier keys.';
+    if (!validTalk(m.talk)) return 'Pick two different modifier keys, or one of the talk keys shown.';
     if (samePair(m.talk, now.write)) next.write = now.talk;
     next.talk = m.talk;
   }
@@ -352,8 +354,10 @@ const saveKeys = (k) => { config.keys = { ...k, write: k.write ?? 'off' }; saveC
 const sendKeys = () => send({ type: 'keybinds', ...keys(), write: HOTKEYS_OK ? keys().write : undefined });
 // How to talk, in a sentence: hold the keys, or on Wayland (where no app can watch the keyboard) press the shortcut
 // they bound to `roamies --talk`, which starts listening and sends on a second press or a pause.
-const talkHow = () => (HOTKEYS_OK ? `Hold ${talkWords().replace('+', ' and ')}` : 'Press your talk shortcut');
-const talkHowLong = () => (HOTKEYS_OK ? `${talkHow()} while you talk` : 'Press your talk shortcut, talk, then press it again (or just pause)');
+// One talk key (Page Up…) works like the Wayland shortcut: press, talk, press again (or pause).
+const talkHow = () => (!HOTKEYS_OK ? 'Press your talk shortcut' : isTalkKey(keys().talk) ? `Press ${talkWords()}` : `Hold ${talkWords().replace('+', ' and ')}`);
+const talkHowLong = () => (!HOTKEYS_OK ? 'Press your talk shortcut, talk, then press it again (or just pause)'
+  : isTalkKey(keys().talk) ? `${talkHow()}, talk, then press it again (or just pause)` : `${talkHow()} while you talk`);
 const MAC = process.platform === 'darwin';
 // The capsule (notch.js in the overlay) on every desktop; its notch style only with a notched screen (macOS, notch_screen).
 // 'off' keeps me beside the cursor.
@@ -819,8 +823,8 @@ const livePrompt = (context = '') => {
   lastFactIds = facts.map((f) => f.id);
   const open = commitmentsText(), done = doneTodayText(), working = agents.liveText(), scheduled = jobsText(fmtWhen), learned = skillIndex(), linked = mcp.liveText();
   const turn = `Live state (current as of this moment):
-${frontNow ? `${frontNow}\n` : ''}${lookLine(session?.looks, config.look ?? 'classic', nameOfLook, userName)}${focusLine()}${crewLine()}${linked ? `- Connections (connection_tools shows a server's tools, use_connection calls one):\n${linked}\n` : ''}- Editing files, running commands and controlling other apps: ${config.allowActions ? 'ALLOWED' : `switched OFF (tell the user to turn on "Allow File Edits & Commands" on the General page in ${PANEL} if they want it)`}.${config.allowActions && config.skipAllow ? ' Allow prompts are skipped: confirmations go ahead automatically, so be extra careful.' : ''}
-${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? (config.listenEvery ? `. Auto-listen is on for every reply: after each spoken reply the mic opens by itself for ${listenSecs()} seconds, so they can just keep talking` : '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer') : ''}${!WAKE_OK ? '. There is no wake word on this computer: to talk they use the talk keys' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "Hey ${wakeName(config)}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "Hey ${wakeName(config)}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Listening page in ${PANEL}`})`}.` : ''}
+${frontNow ? `${frontNow}\n` : ''}${focusLine()}${crewLine()}${linked ? `- Connections (connection_tools shows a server's tools, use_connection calls one):\n${linked}\n` : ''}- Editing files, running commands and controlling other apps: ${config.allowActions ? 'ALLOWED' : `switched OFF (tell the user to turn on "Allow File Edits & Commands" on the General page in ${PANEL} if they want it)`}.${config.allowActions && config.skipAllow ? ' Allow prompts are skipped: confirmations go ahead automatically, so be extra careful.' : ''}
+${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} ${isTalkKey(keys().talk) ? 'presses' : 'holds'} ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? (config.listenEvery ? `. Auto-listen is on for every reply: after each spoken reply the mic opens by itself for ${listenSecs()} seconds, so they can just keep talking` : '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer') : ''}${!WAKE_OK ? '. There is no wake word on this computer: to talk they use the talk keys' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "Hey ${wakeName(config)}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "Hey ${wakeName(config)}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Listening page in ${PANEL}`})`}.` : ''}
 - Shortcuts: ${HOTKEYS_OK ? `${keys().write ? `type a question to you: a quick tap of ${writeWords()} (press both and let go), which opens a text field beside the cursor (Enter sends, Shift+Enter adds a line, Esc or another tap closes it)` : `the tap that opens a text field to type a question is turned off (the Ask button in ${PANEL} still opens it; the Shortcuts page there turns the tap back on)`}; show or hide you ${keyWords(keys().summon)}` : `on this Wayland desktop no app can have global shortcuts, so ${userName} binds keys to these commands in their desktop's keyboard settings: ${BIND.summon} (show or hide you), ${BIND.ask} (ask you), ${BIND.list} (the list), ${BIND.talk} (talk) and ${BIND.panel} (the panel)`}${SNAP_OK ? `; ask about an area ${keyWords(keys().snap)}` : ''}${CIRCLE_OK ? "; while holding the talk keys, moving the cursor round something circles it (no clicking; it snaps shut with a click when the circle closes, and loose lines don't count) and you'll see what they circled" : ''}${HOTKEYS_OK ? `; show the list ${keyWords(keys().list)}` : ''}.${HANDS_OK ? '' : ' Asking about an area, reading app windows, finding things on screen by their words and working other apps need the Roamies app, which isn\'t running here; draw there with x, y from a screenshot.'}`;
   const memory = `${open ? `Open commitments:\n${open}` : 'No open commitments.'}${done ? `\nDone today (ticked off on the list or by you; still shown struck through until midnight):\n${done}` : ''}
 ${facts.length ? `What you know about ${userName}${total > facts.length ? ` (${facts.length} most relevant of ${total})` : ''}:\n${facts.map((f) => `- ${f.id}: ${f.text}`).join('\n')}` : `You don't know anything lasting about ${userName} yet.`}${working ? `\n${working}` : ''}${scheduled ? `\nScheduled jobs (update_job changes them):\n${scheduled}` : ''}${learned ? `\nSkills you've learned (use_skill reads the steps):\n${learned}` : ''}`;
@@ -2861,7 +2865,7 @@ async function onGuide(m) {
     ob({ kind: 'keys', keys: keys(), ...(error ? { error } : {}) });
   } else if (m.type === 'keybind_error') {
     // The OS refused the new show/hide shortcut (another app owns it): put the old one back.
-    if (keysBefore && ['summon', 'snap', 'list'].includes(m.which)) saveKeys({ ...keys(), [m.which]: keysBefore[m.which] });
+    if (keysBefore && ['summon', 'snap', 'list', 'talk'].includes(m.which)) saveKeys({ ...keys(), [m.which]: keysBefore[m.which] });
     ob({ kind: 'keys', keys: keys(), error: 'Another app already uses that shortcut. Try a different one.' });
     panelNote('Another app already uses that shortcut. Try a different one.', true);
   } else if (m.type === 'ob_done') {

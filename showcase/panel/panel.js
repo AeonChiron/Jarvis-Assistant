@@ -902,9 +902,9 @@
     }
     if (!sc) return [group('Shortcuts', 'This computer doesn’t allow shortcuts that work from anywhere.', null)];
     return [
-      sc.talk ? group('Talk', 'Hold two keys to talk. Tap them to talk hands-free.', null,
+      sc.talk ? group('Talk', 'Hold two keys to talk, or tap them to talk hands-free. Or pick one key: press it to talk, again to send.', null,
         picks('Talk keys', sc.talk.pairs, sc.talk.value, (x) => act(`talk:${x}`), 'talk',
-          Object.fromEntries(sc.talk.pairs.map(([id, keys]) => [id, `Hold ${keys} to talk. If they’re your typing keys, the two swap.`])))) : null,
+          Object.fromEntries(sc.talk.pairs.map(([id, keys]) => [id, id.includes('+') ? `Hold ${keys} to talk. If they’re your typing keys, the two swap.` : `Press ${keys} to talk, and again to send (or just pause).`])))) : null,
       w ? group('Type to me', 'Tap two keys together to open a text box by the cursor.', null,
         picks('Type-to-ask keys', [...w.pairs, ['off', 'Off']], w.value, (x) => act(`write:${x}`), 'write',
           Object.fromEntries([...w.pairs.map(([id, keys]) => [id, `Tap ${keys} together, anywhere, to type to me.`]),

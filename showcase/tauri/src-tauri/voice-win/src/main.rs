@@ -317,7 +317,14 @@ impl Voice {
     }
 
     fn set_chord(&mut self, names: &[String]) {
-        let Some(m) = keys::mask(names) else { return log(&format!("ignored chord {names:?}")) };
+        // One key (Page Up, Page Down, `): the shell holds it as a global hotkey and sends {"cmd":"toggle"} on each
+        // press, so there's no chord to watch here (0 = off).
+        let m = if names.len() == 1 {
+            0
+        } else {
+            let Some(m) = keys::mask(names) else { return log(&format!("ignored chord {names:?}")) };
+            m
+        };
         if self.phase == Phase::Wake {
             self.stop_wake();
         } else if self.phase != Phase::Idle {
@@ -351,7 +358,8 @@ impl Voice {
 
     fn tick_keys(&mut self, now: f64, f: keys::Held) {
         let held = f.mods & self.chord;
-        let down = held == self.chord; // once talking, a stray extra modifier doesn't count as letting go
+        // once talking, a stray extra modifier doesn't count as letting go; no chord (a talk key instead) is never down
+        let down = self.chord != 0 && held == self.chord;
         let extra = f.mods & !self.chord != 0 || f.altgr;
         let chord = down && !extra;
         let prev = self.prev_chord;
@@ -1004,6 +1012,21 @@ mod tests {
         let (jobs, jrx) = mpsc::channel();
         let (tx, _events) = mpsc::channel();
         (Voice::new(Some(jobs), Some(wav.clone()), tx), jrx, wav)
+    }
+
+    #[test]
+    fn a_single_talk_key_turns_the_chord_off() {
+        let (mut v, _jobs, _wav) = voice();
+        v.set_chord(&["PageUp".to_string()]);
+        assert_eq!(v.chord, 0);
+        for (i, mods) in [0, keys::CONTROL, keys::CONTROL | keys::OPTION, 0].into_iter().enumerate() {
+            v.tick_keys(i as f64, keys::Held { mods, altgr: false });
+            assert_eq!(v.phase, Phase::Idle, "no modifiers start a talk once a talk key is set");
+        }
+        v.toggle();
+        assert_eq!(v.phase, Phase::HandsFree, "the talk key's press (a toggle) still listens");
+        v.set_chord(&["control".to_string(), "option".to_string()]);
+        assert_eq!(v.chord, keys::CONTROL | keys::OPTION, "a pair turns the chord back on");
     }
 
     #[test]

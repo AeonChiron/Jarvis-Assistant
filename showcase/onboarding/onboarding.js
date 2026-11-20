@@ -153,7 +153,9 @@
   const ORDER = ['control', 'option', 'shift', 'command'];
   const ACC_MOD = { Control: 'control', Alt: 'option', Shift: 'shift', Command: 'command' };
   const keyLabel = (code) => code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow/, '') .replace('Backquote', '`').replace('Minus', '-').replace('Equal', '=').replace('BracketLeft', '[').replace('BracketRight', ']').replace('Backslash', '\\').replace('Semicolon', ';').replace('Quote', "'").replace('Comma', ',').replace('Period', '.').replace('Slash', '/');
-  const capsFor = (mods, key) => [...[...mods].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)).map((x) => MOD[x]), ...(key ? [keyLabel(key)] : [])];
+  // A talk key on its own (Page Up, Page Down, `) shows as itself.
+  const KEY_CAP = { PageUp: 'Page Up', PageDown: 'Page Down' };
+  const capsFor = (mods, key) => [...[...mods].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)).map((x) => MOD[x] ?? KEY_CAP[x] ?? keyLabel(x)), ...(key ? [keyLabel(key)] : [])];
   const accelCaps = (accel) => { const parts = accel.split('+'); return capsFor(parts.slice(0, -1).map((p) => ACC_MOD[p]), parts.at(-1)); };
   const TRAY_SVG = '<svg class="trayicon" viewBox="0 0 36 36" aria-hidden="true" fill="currentColor"><rect x="30" y="3" width="2" height="2"/><rect x="27" y="6" width="2" height="2"/><rect x="30" y="6" width="2" height="2"/><rect x="33" y="6" width="2" height="2"/><rect x="30" y="9" width="2" height="2"/><rect x="6" y="12" width="2" height="2"/><rect x="9" y="12" width="2" height="2"/><rect x="12" y="12" width="2" height="2"/><rect x="15" y="12" width="2" height="2"/><rect x="3" y="15" width="2" height="2"/><rect x="6" y="15" width="2" height="2"/><rect x="9" y="15" width="2" height="2"/><rect x="12" y="15" width="2" height="2"/><rect x="15" y="15" width="2" height="2"/><rect x="18" y="15" width="2" height="2"/><rect x="0" y="18" width="2" height="2"/><rect x="3" y="18" width="2" height="2"/><rect x="9" y="18" width="2" height="2"/><rect x="12" y="18" width="2" height="2"/><rect x="18" y="18" width="2" height="2"/><rect x="21" y="18" width="2" height="2"/><rect x="0" y="21" width="2" height="2"/><rect x="3" y="21" width="2" height="2"/><rect x="9" y="21" width="2" height="2"/><rect x="12" y="21" width="2" height="2"/><rect x="18" y="21" width="2" height="2"/><rect x="21" y="21" width="2" height="2"/><rect x="0" y="24" width="2" height="2"/><rect x="3" y="24" width="2" height="2"/><rect x="6" y="24" width="2" height="2"/><rect x="9" y="24" width="2" height="2"/><rect x="12" y="24" width="2" height="2"/><rect x="15" y="24" width="2" height="2"/><rect x="18" y="24" width="2" height="2"/><rect x="21" y="24" width="2" height="2"/><rect x="3" y="27" width="2" height="2"/><rect x="6" y="27" width="2" height="2"/><rect x="9" y="27" width="2" height="2"/><rect x="12" y="27" width="2" height="2"/><rect x="15" y="27" width="2" height="2"/><rect x="18" y="27" width="2" height="2"/><rect x="6" y="30" width="2" height="2"/><rect x="9" y="30" width="2" height="2"/><rect x="12" y="30" width="2" height="2"/><rect x="15" y="30" width="2" height="2"/></svg>';
   const capsEl = (caps) => { const s = el('span', { className: 'caps' }); for (const c of caps) s.append(el('kbd', { className: 'px cap', textContent: c })); return s; };
@@ -637,6 +639,8 @@
   // Windows: no Win key (letting go of it opens Start) and no Alt+Shift (it switches keyboard layout).
   const PC_CHORDS = [['control', 'option'], ['control', 'shift']];
   const chords = () => (isMac() ? MAC_CHORDS : PC_CHORDS);
+  // Windows can also talk with one key: press it, talk, press it again (the sidecar's talkChords).
+  const talkChoices = () => (isMac() || isLinux() ? chords() : [...PC_CHORDS, ['PageUp'], ['PageDown'], ['Backquote']]);
   const same = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
   const voice = {
     level: 0, target: 0, bars: [], listening: false,
@@ -683,14 +687,14 @@
       $('talk-row').hidden = !state.voice;
       const b = bind();
       $('bind-row').hidden = !b; $('hotkey-row').hidden = !!b; $('chords').hidden = !!b;
-      $('talk-hint').textContent = b ? 'Press your talk key, talk, then press it again (or pause) to send.' : 'Hold to talk. Tap to listen hands-free.';
+      $('talk-hint').textContent = b || k.talk.length === 1 ? 'Press your talk key, talk, then press it again (or pause) to send.' : 'Hold to talk. Tap to listen hands-free.';
       $('keys-lead').textContent = b ? 'Pick keys for these, and they work from anywhere.' : 'These work from anywhere. Change them if you like.';
       if (b) keys.renderBind(b);
-      $('chords').replaceChildren(...chords().map((c) => {
+      $('chords').replaceChildren(...talkChoices().map((c) => {
         const on = same(c, k.talk);
         const b = el('button', { className: 'px chord', type: 'button', role: 'radio', tabIndex: on ? 0 : -1 }, capsEl(capsFor(c)));
         b.setAttribute('aria-checked', String(on));
-        b.setAttribute('aria-label', `Hold ${c.map((x) => (isMac() ? x[0].toUpperCase() + x.slice(1) : PC_MOD[x])).join(' and ')}`);
+        b.setAttribute('aria-label', c.length === 1 ? `Press ${capsFor(c)[0]}` : `Hold ${c.map((x) => (isMac() ? x[0].toUpperCase() + x.slice(1) : PC_MOD[x])).join(' and ')}`);
         b.onclick = () => { if (!on) { send({ type: 'set_keys', talk: c }); quip('Ooh, fancy.'); } };
         return b;
       }));
