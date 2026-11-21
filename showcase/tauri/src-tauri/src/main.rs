@@ -37,6 +37,10 @@ static SIDEKICK_OVERLAY: Mutex<Option<String>> = Mutex::new(None);
 static ONBOARDING: AtomicBool = AtomicBool::new(false);
 const ONBOARDING_LABEL: &str = "onboarding";
 const PANEL_LABEL: &str = "panel";
+/// Jarvis Assistant's app window: the panel's pages as a normal window with a HUD (panel/home.js).
+const HOME_LABEL: &str = "home";
+/// The animama companion was started by the home window's full screen (so leaving it closes it again).
+static ANIMAMA_OURS: AtomicBool = AtomicBool::new(false);
 /// When the panel last hid because it lost focus: a click on the icon that caused it mustn't reopen it.
 static PANEL_BLURRED: Mutex<Option<Instant>> = Mutex::new(None);
 /// Counts opens, so a close that's still playing its animation can tell it was opened again and stay up.
@@ -114,8 +118,10 @@ fn to_overlays(app: &AppHandle, msg: &Value) {
 }
 
 fn to_panel(app: &AppHandle, msg: &Value) {
-    if let Some(w) = app.get_webview_window(PANEL_LABEL) {
-        let _ = w.eval(format!("window.__panel&&__panel({msg})"));
+    for label in [PANEL_LABEL, HOME_LABEL] {
+        if let Some(w) = app.get_webview_window(label) {
+            let _ = w.eval(format!("window.__panel&&__panel({msg})"));
+        }
     }
 }
 
@@ -647,6 +653,76 @@ fn relaunch(app: AppHandle) {
 #[tauri::command]
 fn panel_hide(app: AppHandle) {
     hide_panel(&app, "panel");
+}
+
+/// Opens Jarvis Assistant's app window, or brings it forward: a normal window (title bar, taskbar button, Alt+Tab,
+/// pinnable) showing the panel's pages with the HUD. Closing it quits the app, so nothing keeps running unasked.
+fn show_home(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window(HOME_LABEL) {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+        return;
+    }
+    let built = WebviewWindowBuilder::new(app, HOME_LABEL, WebviewUrl::App("panel/index.html".into()))
+        .title("Jarvis Assistant")
+        .inner_size(1280.0, 820.0)
+        .min_inner_size(900.0, 600.0)
+        .center()
+        .resizable(true)
+        .initialization_script("window.ROAMIE_HOME=true;")
+        .build();
+    match built {
+        Ok(w) => {
+            let app2 = app.clone();
+            w.on_window_event(move |e| {
+                if let tauri::WindowEvent::CloseRequested { .. } = e {
+                    stop_animama();
+                    app2.exit(0);
+                }
+            });
+        }
+        Err(e) => eprintln!("home window failed to open: {e}"),
+    }
+}
+
+/// Where the animama companion app is installed for this user (its own installer's default), if it is.
+fn animama_exe() -> Option<std::path::PathBuf> {
+    let p = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Programs").join("Animama").join("Animama.exe");
+    p.exists().then_some(p)
+}
+
+/// Closes animama if the home window's full screen started it (one the user opened themselves is left alone).
+fn stop_animama() {
+    if !ANIMAMA_OURS.swap(false, Ordering::SeqCst) {
+        return;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = Command::new("taskkill").args(["/IM", "Animama.exe", "/T", "/F"]).creation_flags(0x0800_0000).status();
+    }
+}
+
+/// The home window's full screen (its button, F11, Esc). With `companion`, animama comes along in full screen and
+/// goes when it ends.
+#[tauri::command]
+fn home_full(app: AppHandle, on: bool, companion: bool) {
+    if let Some(w) = app.get_webview_window(HOME_LABEL) {
+        let _ = w.set_fullscreen(on);
+    }
+    if on && companion {
+        if !ANIMAMA_OURS.load(Ordering::SeqCst) {
+            if let Some(exe) = animama_exe() {
+                match Command::new(exe).spawn() {
+                    Ok(_) => ANIMAMA_OURS.store(true, Ordering::SeqCst),
+                    Err(e) => eprintln!("animama failed to start: {e}"),
+                }
+            }
+        }
+    } else {
+        stop_animama();
+    }
 }
 
 /// Closes the guide without the drop-in (the chat-only guide is done).
@@ -1917,10 +1993,8 @@ fn second_launch(app: &AppHandle, args: &[String]) {
         // The sidecar's to do: it knows whether voice is on and ready, and owns the ask bubble and the list.
         Some(action) => to_sidecar(app, &json!({ "type": "cli", "action": action })),
         None if cfg!(target_os = "linux") => show_panel(app, None, false),
-        None if cfg!(windows) => {
-            to_overlays(app, &json!({ "kind": "summon" }));
-            show_panel(app, None, false);
-        }
+        // Opening it again from the Start menu or a pinned taskbar button: its app window.
+        None if cfg!(windows) => show_home(app),
         None => to_overlays(app, &json!({ "kind": "summon" })),
     }
 }
@@ -1941,7 +2015,7 @@ fn main() {
         .manage(TalkChord(Mutex::new(vec!["control".into(), "option".into()])))
         .manage(VoiceModel(Mutex::new(None)))
         .manage(PermGuide(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![buddy, ink_wait, set_hot, set_hit_rects, sidecar_send, set_typing, perm_status, perm_request, perm_guide, screen_check, open_settings, onboarding_finish, guide_close, panel_hide, esc_watch, relaunch, focus_guide, guide_aside, drag_window])
+        .invoke_handler(tauri::generate_handler![buddy, ink_wait, set_hot, set_hit_rects, sidecar_send, set_typing, perm_status, perm_request, perm_guide, screen_check, open_settings, onboarding_finish, guide_close, panel_hide, home_full, esc_watch, relaunch, focus_guide, guide_aside, drag_window])
         .on_menu_event(|app, e| match e.id.as_ref() {
             "quit" => app.exit(0),
             "restart" => spawn_sidecar(app),
@@ -1965,7 +2039,11 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, e| {
                     if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, rect, .. } = e {
-                        show_panel(tray.app_handle(), Some(rect), true);
+                        if cfg!(windows) {
+                            show_home(tray.app_handle());
+                        } else {
+                            show_panel(tray.app_handle(), Some(rect), true);
+                        }
                     }
                 });
             #[cfg(target_os = "macos")]
@@ -1995,6 +2073,10 @@ fn main() {
             #[cfg(target_os = "macos")]
             fullscreen::watch(app.handle().clone());
             spawn_sidecar(app.handle());
+            // Windows: Jarvis Assistant opens as its app window (closing it quits).
+            if cfg!(windows) {
+                show_home(app.handle());
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

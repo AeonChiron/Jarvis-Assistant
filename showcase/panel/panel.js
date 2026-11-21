@@ -1214,6 +1214,7 @@
   window.__panel = (m) => {
     if (m.kind === 'state') {
       const first = !state; state = m.state;
+      window.__panelState = m.state; // the home page's HUD (home.js) reads it
       if (ui.arm && !document.querySelector(`[data-k="${CSS.escape(ui.arm)}"]`)) ui.arm = null;
       render(null, first);
       if (m.state.tab) show(m.state.tab, true); // opened for a reason (asked with nothing signed in: the Model page)
