@@ -32,7 +32,9 @@ const main = read(tauri, 'src-tauri', 'src', 'main.rs');
   for (const f of fs.readdirSync(path.join(tauri, 'src-tauri', 'src')).filter((f) => f.endsWith('.rs'))) {
     assert.doesNotMatch(read(tauri, 'src-tauri', 'src', f), /"\/IM"/, `${f}: no taskkill /IM`);
   }
-  assert.match(main, /taskkill"\)\.args\(\["\/PID", &pid\.to_string\(\), "\/T", "\/F"\]\)/, 'stop_animama kills its own child by PID');
+  // The separate Animama app is no longer started (the companion lives in the window); if it ever is again, the shell
+  // must end it by the PID of the child it started.
+  if (/Animama\.exe/.test(main)) assert.match(main, /taskkill"\)\.args\(\["\/PID", &pid\.to_string\(\), "\/T", "\/F"\]\)/, 'Animama is ended by its own PID');
   console.log('F07 kill by PID: ok');
 }
 
