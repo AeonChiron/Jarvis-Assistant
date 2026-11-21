@@ -32,13 +32,20 @@ Same shape as the rest of Jarvis Assistant: each piece in its own place, talking
 - One message type between brain and screen (`{ kind: 'companion', ... }`), the way drawings already travel.
 - `build.sh` builds the companion with Vite before the app; the release workflow does the rest.
 
+## Taken from animama (only what's essential)
+The character engine (Andrew, Annie), emotions, reactions, gestures, effects, lip sync, idle life and camera
+framing. Left out: its chat, memory, settings, backend, voice input and picture-in-picture. Maybe later: Pocket TTS
+(a free on-PC voice that can clone a voice).
+
 ## Steps (each ends with the companion on screen in the installed app, screenshotted)
 0. **Probe:** `showcase/companion/` = the vendored engine + Andrew + a few gestures + a plain three.js stage, built
    with Vite in GitHub Actions. Download the built page and render Andrew idling and waving in the browser pane.
    Proves the engine runs outside animama before anything else is built on it.
-1. **On stage:** in the home window's full screen the companion replaces the globe (Andrew or Annie, picked in
-   Settings; the globe stays outside full screen). Idle, blinking, looking around; lip sync from Jarvis's voice.
-   The separate-app launch of animama goes away.
+1. **On stage:** the companion lives in the Jarvis Assistant window itself (any size; the Full screen button stays
+   but isn't needed), in place of the globe (Andrew or Annie, picked in Settings). Idle life (blinking, breathing,
+   looking around, small idle moves), lip sync from Jarvis's voice, camera framing presets. A clear **Minimize to
+   buddy** button hides the window and shows the little desktop buddy; **double-clicking the buddy** brings the
+   window back; closing the window still quits. The separate-app launch of animama goes away.
 2. **Emotions and reactions:** each spoken sentence's feeling (Roamies' speech cues) sets animama's emotion and
    plays a matching reaction.
 3. **Gestures:** a `companion` tool for the brain with the gesture catalog's names, so Jarvis gestures as he talks.
