@@ -685,12 +685,9 @@ fn show_home(app: &AppHandle) {
     match built {
         Ok(w) => {
             let app2 = app.clone();
+            // Windows' own minimize stays an ordinary minimize (on the taskbar): only the "Minimize to buddy"
+            // button hides the window into the buddy, so the app never looks closed while it still runs.
             w.on_window_event(move |e| {
-                if let tauri::WindowEvent::Resized(_) = e {
-                    if app2.get_webview_window(HOME_LABEL).and_then(|w| w.is_minimized().ok()) == Some(true) {
-                        let _ = home_minimize(app2.clone());
-                    }
-                }
                 if let tauri::WindowEvent::CloseRequested { .. } = e {
                     app2.exit(0);
                 }

@@ -42,9 +42,13 @@ export function mount(canvas: HTMLCanvasElement) {
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
     target.copy(center);
-    if (frame === 'head') { target.y = bounds.max.y - size.y * .16; span = size.y * .45; }
+    // face: the desktop buddy's circle (just the face, from the front); head: head and shoulders; body: all of them.
+    if (frame === 'face') { target.y = bounds.max.y - size.y * .085; span = size.y * .175; }
+    else if (frame === 'head') { target.y = bounds.max.y - size.y * .16; span = size.y * .45; }
     else span = size.y * 1.13;
-    const distance = Math.max(span, size.x / camera.aspect * 1.15) / (2 * Math.tan(THREE.MathUtils.degToRad(15)));
+    // Only the full body needs the width (the arms): close framings would be pushed back by it.
+    const wide = frame === 'body' ? size.x / camera.aspect * 1.15 : 0;
+    const distance = Math.max(span, wide) / (2 * Math.tan(THREE.MathUtils.degToRad(15)));
     camera.position.set(target.x, target.y, target.z + distance); camera.lookAt(target); camera.updateProjectionMatrix();
   };
   const api = {
@@ -64,7 +68,7 @@ export function mount(canvas: HTMLCanvasElement) {
         bounds.setFromObject(next.scene!); fit(); api.ready = true;
       } catch (e) { if (serial === generation && !disposed) { api.error = String(e); console.error('Companion could not load', e); } }
     },
-    framing(value: string) { frame = value === 'head' ? 'head' : 'body'; fit(); },
+    framing(value: string) { frame = value === 'head' || value === 'face' ? value : 'body'; fit(); },
     cursor(x: number, y: number) { cursor = { clientX:x, clientY:y, source:'dom', isInsideViewport:true }; },
     speaking(value: number) { level = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0; },
     emotion(name: string) {

@@ -21,3 +21,5 @@ node_modules/
 .idea/
 showcase/companion/dist/
 showcase/companion/.vendor-modules.json
+showcase/companion/companion.js
+showcase/companion/content

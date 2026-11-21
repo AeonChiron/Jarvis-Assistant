@@ -860,8 +860,10 @@
               Math.min(gw, Math.ceil((dx1 + 1 + a - tox) / a) * a + tox), Math.min(gh, Math.ceil((dy1 + 1 + a - toy) / a) * a + toy)];
           }
           if (window.JarvisCompanion?.isCharacter(look)) {
-            const body = [Math.max(0, Math.floor((bx - R * 1.6) / P)), Math.max(0, Math.floor((by - R * 2) / P)),
-              Math.min(gw, Math.ceil((bx + R * 1.6) / P)), Math.min(gh, Math.ceil((by + R * 2) / P))];
+            // The face circle and its ring's glow (draw below).
+            const e = R * 1.5;
+            const body = [Math.max(0, Math.floor((bx - e) / P)), Math.max(0, Math.floor((by - e) / P)),
+              Math.min(gw, Math.ceil((bx + e) / P)), Math.min(gh, Math.ceil((by + e) / P))];
             if (body[2] > body[0] && body[3] > body[1]) {
               rect = rect ? [Math.min(rect[0], body[0]), Math.min(rect[1], body[1]), Math.max(rect[2], body[2]), Math.max(rect[3], body[3])] : body;
             }
@@ -958,16 +960,24 @@
             if (portrait.naturalWidth) ctx.drawImage(portrait, bx - R, by - R, R * 2, R * 2);
           } else if (window.JarvisCompanion?.isCharacter(look)) {
             if (!companion) {
-              try { companion = JarvisCompanion.mount(document.createElement('canvas')); companion.load(look); }
+              try { companion = JarvisCompanion.mount(document.createElement('canvas')); companion.framing('face'); companion.load(look); }
               catch (error) { console.error('Companion renderer unavailable', error); }
             }
             if (companion) {
               companion.speaking(window.Roamie.voiceOut?.level() ?? 0);
               companion.emotion(window.Roamie.voiceOut?.feel() ?? 'neutral');
-              companion.render(jst.dt, 256, 320);
+              companion.render(jst.dt, 256, 256);
               if (companion.ready) {
-                ctx.save(); ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(companion.canvas, bx - R * 1.6, by - R * 2, R * 3.2, R * 4); ctx.restore();
+                // On the desktop the animama characters are a face in a small round window with a HUD ring.
+                const r = R * 1.2;
+                ctx.save();
+                ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(6, 22, 26, 0.92)'; ctx.fill();
+                ctx.save(); ctx.clip(); ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(companion.canvas, bx - r, by - r, r * 2, r * 2); ctx.restore();
+                ctx.lineWidth = Math.max(1.5, r * 0.04); ctx.strokeStyle = '#78ffe2';
+                ctx.shadowColor = 'rgba(120, 255, 226, 0.7)'; ctx.shadowBlur = r * 0.18; ctx.stroke();
+                ctx.restore();
               }
             }
           }
