@@ -51,3 +51,32 @@ console.log('host click-through tests: passed');
   assert.ok(!calls.some(([c, a]) => c === 'sidecar_send' && a.msg.id === 'stop'));
   console.log('host hide-stops-voice tests: passed');
 }
+
+// Regression: with the app minimized into the buddy, the buddy follows the cursor, so the cursor kept landing on it
+// and clicks meant for the app below went to the overlay ("my cursor isn't working").
+{
+  let clock = 0;
+  ctx.performance = { now: () => clock };
+  const mover = { x: 400, y: 300, radius: 30, dragging: false };
+  window.Roamie.tiles = [{ creature: { mover, agent: { visible: true, show: noop, hide: noop, act: noop } } }];
+  const state = () => hot().at(-1) ?? false;
+  window.__roamieHost({ kind: 'buddy_mode', on: true });
+  calls.length = 0; over = true;
+  window.__roamiePtr(405, 300, 0);
+  assert.equal(state(), false, 'passing over the buddy: clicks still reach the app below');
+  clock += 150; window.__roamiePtr(420, 310, 0); tick();
+  assert.equal(state(), false, 'still moving');
+  clock += 450; tick();
+  assert.equal(state(), true, 'resting on it: it takes the click (double-click to restore, its X)');
+  clock += 50; window.__roamiePtr(424, 312, 0);
+  assert.equal(state(), true, 'a small move for the double-click keeps it');
+  over = false; window.__roamiePtr(600, 500, 0);
+  assert.equal(state(), false, 'gone: clicks go through');
+  over = true; mover.dragging = true; window.__roamiePtr(405, 300, 0);
+  assert.equal(state(), true, 'mid-drag it keeps the mouse');
+  mover.dragging = false; window.__roamiePtr(900, 700, 0); over = false; window.__roamiePtr(900, 701, 0);
+  window.__roamieHost({ kind: 'buddy_mode', on: false });
+  over = true; window.__roamiePtr(405, 300, 0);
+  assert.equal(state(), true, 'not the buddy: the sidekick takes clicks at once, as before');
+  console.log('host buddy click-through tests: passed');
+}

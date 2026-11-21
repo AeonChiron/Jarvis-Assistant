@@ -30,18 +30,31 @@
   // Linux ("x11" or "wayland", set by the shell): clicks are let through by region instead (below).
   const LINUX = !!window.ROAMIE_LINUX;
   const setHot = (h) => { if (!LINUX && h !== hot) { hot = h; invoke('set_hot', { hot: h }).catch(() => { hot = null; }); } };
+  // Buddy mode (the app minimized into the character): it follows the cursor, so the cursor keeps landing on it and
+  // every click there missed the app below. Its body only takes clicks once the cursor rests on it (to double-click it
+  // back, or reach its X), then keeps them until the cursor leaves; a drag already under way keeps the mouse.
+  let rest = null;
+  const buddyGate = (x, y, h) => {
+    const body = buddyMode && h ? Roamie.tiles?.find((t) => t.creature.agent)?.creature.mover : null;
+    if (body?.dragging) return h;
+    if (!body || Math.hypot(body.x - x, body.y - y) >= body.radius * 1.2) { rest = null; return h; }
+    const now = performance.now();
+    if (rest?.armed) return true;
+    if (!rest || Math.hypot(rest.x - x, rest.y - y) > 6) rest = { x, y, at: now };
+    return (rest.armed = now - rest.at >= 400);
+  };
   window.__roamiePtr = (x, y, t) => {
     if (!window.Roamie?.ptr) return;
     cursor = [x, y];
     Roamie.ink?.ptr(x, y);
     Roamie.askBar?.ptr(x, y);
-    const h = Roamie.ptr(x, y, t);
+    const h = buddyGate(x, y, Roamie.ptr(x, y, t));
     setHot(h && !handsBusy && !Roamie.game);
   };
   // The shell only sends the cursor when it moves, but what's under a resting cursor can change (an Allow button
   // grows into place there while a reply is spoken): look again a few times a second, or a click on it goes to the
   // app below until the mouse moves. Linux sends its click areas on a timer of its own (below).
-  if (!LINUX) setInterval(() => { if (cursor && window.Roamie?.ptr) setHot(Roamie.ptr(cursor[0], cursor[1]) && !handsBusy && !Roamie.game); }, 120);
+  if (!LINUX) setInterval(() => { if (cursor && window.Roamie?.ptr) setHot(buddyGate(cursor[0], cursor[1], Roamie.ptr(cursor[0], cursor[1])) && !handsBusy && !Roamie.game); }, 120);
   // macOS: a fullscreen game is in front (fullscreen.rs). It holds the cursor, so every click is its own and the
   // Sidekick stops following the cursor (agent.js).
   window.__roamieGame = (on) => { if (!window.Roamie) return; Roamie.game = !!on; if (on) setHot(false); };
