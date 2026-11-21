@@ -229,11 +229,11 @@
     const u = state.update, b = $('head-update'), v = u.available;
     const fresh = u.result?.ok && Date.now() - (u.result.at ?? 0) < FRESH;
     const [label, aria, kind, off] =
-      u.done ? ['Done', `Roamies ${u.done} is installed. Restarting`, 'ghost', true]
-      : u.installing ? ['Updating…', `Installing Roamies ${v}`, 'ghost', true]
-      : v ? (u.page ? [`Get ${v}`, `Open the download page for Roamies ${v}`, 'primary', false] : [`Update to ${v}`, `Install Roamies ${v} and restart`, 'primary', false])
+      u.done ? ['Done', `Jarvis ${u.done} is installed. Restarting`, 'ghost', true]
+      : u.installing ? ['Updating…', `Installing Jarvis ${v}`, 'ghost', true]
+      : v ? (u.page ? [`Get ${v}`, `Open the download page for Jarvis ${v}`, 'primary', false] : [`Update to ${v}`, `Install Jarvis ${v} and restart`, 'primary', false])
       : u.checking ? ['Checking…', 'Checking for updates', 'ghost', true]
-      : fresh ? ['Up to date', `Roamies ${state.version} is up to date`, 'ghost', true]
+      : fresh ? ['Up to date', `Jarvis ${state.version} is up to date`, 'ghost', true]
       : u.result ? ['Check again', "Couldn't check for updates. Check again", 'ghost', false]
       : ['Check for updates', 'Check for updates', 'ghost', false];
     b.hidden = false; b.textContent = label; b.disabled = off;
@@ -247,10 +247,10 @@
   // Quit asks first: the first press turns it into Confirm for 4 s, the second quits.
   const quitB = $('head-quit');
   let quitTimer = 0;
-  const unarmQuit = () => { clearTimeout(quitTimer); quitB.setAttribute('aria-pressed', 'false'); quitB.setAttribute('aria-label', 'Quit Roamies'); };
+  const unarmQuit = () => { clearTimeout(quitTimer); quitB.setAttribute('aria-pressed', 'false'); quitB.setAttribute('aria-label', 'Quit Jarvis'); };
   quitB.addEventListener('click', () => {
     if (quitB.getAttribute('aria-pressed') === 'true') { unarmQuit(); act('quit'); return; }
-    quitB.setAttribute('aria-pressed', 'true'); quitB.setAttribute('aria-label', 'Confirm: quit Roamies');
+    quitB.setAttribute('aria-pressed', 'true'); quitB.setAttribute('aria-label', 'Confirm: quit Jarvis');
     quitTimer = setTimeout(unarmQuit, 4000);
   });
   const closeB = $('head-close');
@@ -349,7 +349,7 @@
     if (seen.look && state.look !== seen.look) { avatar.setLook(state.look); avatar.act('wave'); quip(QUIPS[state.look] ?? 'Hi!'); }
     else avatar.setLook(state.look);
     avatar.setForm(state.size);
-    if (state.update.available && state.update.available !== seen.update && seen.look) { avatar.act('hype'); quip(`Roamies ${state.update.available} is here!`); }
+    if (state.update.available && state.update.available !== seen.update && seen.look) { avatar.act('hype'); quip(`Jarvis ${state.update.available} is here!`); }
     seen.look = state.look; seen.update = state.update.available;
   }
 
@@ -590,7 +590,7 @@
         el('span', { className: 'acct-name' }, p.label, p.on ? el('span', { className: 'led on', role: 'img', 'aria-label': p.method === 'local' ? 'Connected' : 'Signed in', 'data-tip': p.method === 'local' ? 'Connected' : 'Signed in' }) : null),
         p.on ? el('span', { className: 'row-btns' },
           p.key ? changeKey(p) : null,
-          ui.key === p.id ? null : armed(p.signedIn && !p.keySaved ? 'Sign out' : 'Remove', 'Confirm', `signout:${p.id}`, `signout:${p.id}`, `Remove ${p.label} from Roamies`))
+          ui.key === p.id ? null : armed(p.signedIn && !p.keySaved ? 'Sign out' : 'Remove', 'Confirm', `signout:${p.id}`, `signout:${p.id}`, `Remove ${p.label} from Jarvis`))
           : state.loggingIn === p.id ? el('span', { className: 'waiting', textContent: 'Signing in…' })
           : p.method === 'oauth' ? (p.key ? el('span', { className: 'links' }, signIn(p), addKey(p)) : signIn(p))
           : addKey(p)),
@@ -886,8 +886,8 @@
           el('p', { className: 'sub', textContent: 'Mic waits for you' }),
           picks('Mic waits for you', v.listenChoices.map((s) => [String(s), `${s} s`]), String(v.listenSecs), (x) => act(`listensecs:${x}`), 'listensecs')) : null,
         toggle('Listen after reminders', needs('Mic opens after a reminder, so you can say “snooze 10 minutes”.'), v.snoozeListen, () => act('snoozelisten'), 'snoozelisten'),
-        v.wake ? toggle('Wake word', needs(`Say “Hey ${v.wakeName || 'Roamies'}” to talk. Mic stays on.`), v.wakeWord, () => act('wakeword'), 'wakeword') : null,
-        v.wake ? el('div', { className: 'setting' }, el('span', {}, 'Wake word name', el('small', { textContent: `Hey ${v.wakeName || 'Roamies'}` })),
+        v.wake ? toggle('Wake word', needs(`Say “Hey ${v.wakeName || 'Jarvis'}” to talk. Mic stays on.`), v.wakeWord, () => act('wakeword'), 'wakeword') : null,
+        v.wake ? el('div', { className: 'setting' }, el('span', {}, 'Wake word name', el('small', { textContent: `Hey ${v.wakeName || 'Jarvis'}` })),
           link('Change', () => act('wakename'), { k: 'wakename', aria: 'Change the wake word name' })) : null))];
   }
   // The keys that work from anywhere. On Wayland no app may hold its own, so it lists the commands to bind instead.
@@ -986,32 +986,16 @@
             link('Stop', () => act('syncstop'), { k: 'syncstop', aria: 'Stop syncing memory' })] : link('Set up', () => act('syncsetup'), { k: 'syncsetup', aria: 'Set up memory sync' })) : null),
     ];
   }
-  // Who made Roamies: Ken, live (he's drawn like the looks but isn't one), and where to find him.
-  const KEN = [
-    ['Skool', 'Learn with Ken, or support him', 'https://www.skool.com/kenkai', "Open Ken Kai's Skool community"],
-    ['YouTube', '@kenkaidoesai', 'https://www.youtube.com/@kenkaidoesai', "Open Ken Kai's YouTube channel"],
-    ['TikTok', '@ggkenkai', 'https://www.tiktok.com/@ggkenkai', "Open Ken Kai's TikTok"],
-    ['Source code', 'Open source under AGPL-3.0', 'https://github.com/KenKaiii/Roamies', 'Open the Roamies source code on GitHub'],
+  // About: who makes Jarvis, and help.
+  const MADE_BY = [
+    ['AeonChiron', 'Jarvis Assistant, built on Roamies', 'https://github.com/AeonChiron/Roamies', 'Open Jarvis Assistant on GitHub'],
   ];
-  let ken = null;
-  function maker() {
-    if (!ken) {
-      const cv = el('canvas', { 'aria-hidden': 'true' });
-      const r = liveRoamie(cv, 100, 74, { look: 'ken', y: 0.55 });
-      const card = el('div', { className: 'maker' }, cv, el('span', {}, 'Ken Kai', el('small', { textContent: 'Creator of Roamies' })));
-      let waved = 0;
-      card.addEventListener('pointerenter', () => { if (r && Date.now() - waved > 3500) { waved = Date.now(); r.act('wave'); } });
-      r?.appear('crt');
-      ken = card;
-    }
-    return ken;
-  }
   function aboutPage() {
     return [
-      group('Made by', null, null, maker(),
-        KEN.map(([label, hint, url, aria]) => el('div', { className: 'setting' },
+      group('Made by', 'Credits has everyone whose work Jarvis uses.', null,
+        MADE_BY.map(([label, hint, url, aria]) => el('div', { className: 'setting' },
           el('span', {}, label, el('small', { textContent: hint })),
-          link('Open', () => send({ type: 'open_link', url }), { k: `ken-${label.toLowerCase()}`, aria })))),
+          link('Open', () => send({ type: 'open_link', url }), { k: `made-${label.toLowerCase()}`, aria })))),
       group('Help', null, null,
         el('div', { className: 'links' },
           link('Setup guide', () => act('setup', true), { k: 'setup' }),
@@ -1020,6 +1004,42 @@
           // Only once there is one: the latest error anyone saw, in full, for pasting into a report.
           state.problem ? link('Copy last error', copyProblem, { k: 'copy-problem' }) : null)),
     ];
+  }
+
+  // Credits: the people and projects whose code or ideas Jarvis uses. To add one, add a row to its group:
+  // [name, what it does here (and its license), link or null].
+  const CREDITS = [
+    ['Built on', [
+      ['Roamies by Ken Kai', 'The app Jarvis grew from: the sidekick, voice, drawing and agents (AGPL-3.0)', 'https://github.com/KenKaiii/Roamies'],
+      ['gg-framework by Ken Kai', 'The agent framework behind it (AGPL-3.0)', 'https://github.com/KenKaiii/gg-framework'],
+    ]],
+    ['Companion', [
+      ['Animama by Raymond Van', 'The companion that joins you in full screen (AGPL-3.0)', 'https://github.com/raymond-van/animama'],
+    ]],
+    ['Speech', [
+      ['Parakeet TDT by NVIDIA', 'The speech model that hears you (CC BY 4.0)', 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3'],
+      ['Parakeet ONNX by istupakov', 'The model in a form this PC can run (CC BY 4.0)', 'https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx'],
+      ['parakeet-rs by altunenes', 'Runs the speech model on Windows (MIT / Apache-2.0)', 'https://github.com/altunenes/parakeet-rs'],
+    ]],
+    ['App and tools', [
+      ['Tauri', 'The desktop app shell (MIT / Apache-2.0)', 'https://github.com/tauri-apps/tauri'],
+      ['Node.js', 'Runs the brain (MIT)', 'https://github.com/nodejs/node'],
+      ['zod', 'Checks every drawing and setting (MIT)', 'https://github.com/colinhacks/zod'],
+      ['Claude Agent SDK by Anthropic', 'Sign in with Claude', 'https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk'],
+    ]],
+    ['Fonts and maps', [
+      ['Doto', 'Headings (SIL OFL 1.1)', 'https://github.com/oliverlalan/Doto'],
+      ['Martian Mono by Evil Martians', 'Text (SIL OFL 1.1)', 'https://github.com/evilmartians/mono'],
+      ['Readex Pro', 'Arabic letters (SIL OFL 1.1)', 'https://github.com/ThomasJockin/readexpro'],
+      ['Natural Earth', 'Country outlines on map cards (public domain)', 'https://www.naturalearthdata.com'],
+    ]],
+  ];
+  function creditsPage() {
+    return CREDITS.map(([title, rows]) => group(title, null, null,
+      rows.map(([name, what, url]) => el('div', { className: 'setting' },
+        el('span', {}, name, el('small', { textContent: what })),
+        url ? link(url.includes('github.com') ? 'GitHub' : 'Open',
+          () => send({ type: 'open_link', url }), { k: `credit-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, aria: `Open ${name}` }) : null))));
   }
 
   // ---------------------------------------------------------------- What's new
@@ -1059,7 +1079,7 @@
   }
 
   // ---------------------------------------------------------------- render
-  const PANES = { home, memory, abilities: abilitiesPage, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
+  const PANES = { home, memory, credits: creditsPage, abilities: abilitiesPage, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
   // focusKey: what to focus after (a data-k, or an element id); otherwise whatever had focus keeps it.
   function render(focusKey, animate = false) {
     if (!state) return;
