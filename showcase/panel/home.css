@@ -19,7 +19,8 @@ body.home .head-close { display: none; }          /* the window's own close butt
 .hud-globe { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hud-rings { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 .hud-rings svg { width: min(74vh, 74%); height: min(74vh, 74%); overflow: visible; }
-.hud-rings .r1, .hud-rings .r2, .hud-rings .r3 { transform-origin: 50% 50%; }
+/* Spin each ring round its own centre (SVG's default box is the viewBox, whose 50% is a corner here). */
+.hud-rings .r1, .hud-rings .r2, .hud-rings .r3 { transform-box: fill-box; transform-origin: center; }
 .hud-rings .r1 { animation: hud-spin 40s linear infinite; }
 .hud-rings .r2 { animation: hud-spin 26s linear infinite reverse; }
 .hud-rings .r3 { animation: hud-spin 70s linear infinite; }
