@@ -1694,7 +1694,8 @@ fn helper_binary(name: &str) -> Option<PathBuf> {
 }
 
 fn log_stdio(name: &str) -> Stdio {
-    std::env::var_os("HOME")
+    std::env::var_os("ROAMIES_DATA_DIR")
+        .or_else(|| std::env::var_os("HOME"))
         .or_else(|| std::env::var_os("USERPROFILE"))
         .and_then(|h| log_path(std::path::Path::new(&h), name))
         .and_then(|p| {
@@ -2000,6 +2001,13 @@ fn second_launch(app: &AppHandle, args: &[String]) {
 }
 
 fn main() {
+    // Jarvis Assistant keeps its own data in ~\JarvisAssistant, apart from Roamies' ~\Roamies: the sidecar, its agents
+    // and skills, and the logs all follow ROAMIES_DATA_DIR. Set before any thread or child process starts.
+    if std::env::var_os("ROAMIES_DATA_DIR").is_none() {
+        if let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) {
+            std::env::set_var("ROAMIES_DATA_DIR", std::path::PathBuf::from(home).join("JarvisAssistant"));
+        }
+    }
     #[cfg(target_os = "linux")]
     linux::init();
     tauri::Builder::default()
