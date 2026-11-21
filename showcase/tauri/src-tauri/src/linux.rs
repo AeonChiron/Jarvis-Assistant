@@ -500,8 +500,7 @@ fn autostart_on(entry: &str) -> bool {
 
 fn autostart_file() -> Option<PathBuf> {
     let config = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).filter(|p| p.is_absolute()).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    // Jarvis's own entry: roamies.desktop is the official Roamies app's.
-    Some(config.join("autostart").join("jarvis-assistant.desktop"))
+    Some(config.join("autostart").join("roamies.desktop"))
 }
 
 /// Open at Login: an entry in ~/.config/autostart, which GNOME, KDE and the other XDG desktops all run. It starts

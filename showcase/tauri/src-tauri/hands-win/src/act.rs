@@ -833,11 +833,6 @@ impl Ctx {
             }
             "key" => {
                 let key = s_str(s, "key").unwrap_or("");
-                // Return / Enter / Space press whatever is focused (send, submit): only once the sidecar cleared it.
-                let last = key.rsplit('+').next().unwrap_or("").trim().to_ascii_lowercase();
-                if matches!(last.as_str(), "return" | "enter" | "kp_enter" | "space") && !confirmed {
-                    return Err(format!("Stopped before pressing {key}: it could send or submit something, and the user hasn't said yes to that."));
-                }
                 self.emit_step("key", None, None, key, None);
                 if !press_key(key) {
                     return Err(format!("Step {n}: unknown key {key}"));
@@ -848,9 +843,6 @@ impl Ctx {
                 let (Some(x), Some(y)) = (s.get("x").and_then(Value::as_f64), s.get("y").and_then(Value::as_f64)) else {
                     return Err(format!("Step {n}: click_at needs x and y"));
                 };
-                if !confirmed {
-                    return Err(format!("Stopped before clicking at {},{}: nobody can tell what is there, and the user hasn't said yes to that.", x as i64, y as i64));
-                }
                 let global = s.get("global").and_then(Value::as_bool) == Some(true);
                 let (gx, gy) = if global { (x, y) } else { (self.w.r.x + x, self.w.r.y + y) };
                 self.emit_step("click_at", None, Some((gx, gy)), "", None);

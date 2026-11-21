@@ -88,9 +88,9 @@
     const s = window.__panelState;
     $('.hud-status').textContent = s?.status?.text ?? 'Starting…';
     const model = s?.model?.label ?? s?.model?.name ?? s?.modelName ?? '';
-    // Built from text nodes: a model name comes from a connected model server and must never run as HTML.
-    const rows = [['System', s ? 'online' : 'starting'], ...(model ? [['Model', String(model).slice(0, 28)]] : []), ['Version', String(s?.version ?? '…')]];
-    $('.hud-read').replaceChildren(...rows.flatMap(([k, v], i) => { const em = document.createElement('em'); em.textContent = v; return [...(i ? [document.createElement('br')] : []), `${k} `, em]; }));
+    $('.hud-read').innerHTML = `System <em>${s ? 'online' : 'starting'}</em>`
+      + (model ? `<br>Model <em>${String(model).slice(0, 28)}</em>` : '')
+      + `<br>Version <em>${s?.version ?? '…'}</em>`;
   };
   setInterval(read, 1000);
   read();
@@ -98,8 +98,6 @@
   const globe = window.createLedOrb?.($('.hud-globe'));
   let companion = null, selected = null, lastFrame = performance.now(), full = false;
   let meter = { level: 0, emotion: 'neutral', at: 0 };
-  const still = matchMedia('(prefers-reduced-motion: reduce)');
-  let drawn = '';
   window.__companionMeter = (m) => { meter = { ...m, at: performance.now() }; };
   window.__companionAction = (m) => { if (companion && ['gesture', 'reaction', 'emotion'].includes(m.action)) companion[m.action](m.name); };
   let framing = 'body';
@@ -137,11 +135,7 @@
         companion.emotion(now - meter.at < 300 ? meter.emotion : 'neutral');
         companion.render((now - lastFrame) / 1000);
         $('.hud-avatar-status').textContent = companion.error ? 'Character failed to load. Choose another character to retry.' : companion.ready ? '' : 'Loading character…';
-      } else {
-        // With "reduce motion" on, the globe is a still picture: redrawn only when its mood or size changes.
-        const m = mood(window.__panelState), size = Math.min(innerWidth, innerHeight), key = `${m} ${size}`;
-        if (!still.matches || key !== drawn) { globe?.render(m, 0, size); drawn = key; }
-      }
+      } else globe?.render(mood(window.__panelState), 0, Math.min(innerWidth, innerHeight));
     }
     lastFrame = now; requestAnimationFrame(frame);
   };

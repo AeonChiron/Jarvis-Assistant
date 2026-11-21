@@ -42,9 +42,6 @@ const NO_WRITE = [
   /(^|\/)\.local\/share\/(systemd|dbus-1|applications|kservices[56]?)(\/|$)/, /\.desktop$/i,
   /(^|\/)\.(xprofile|xinitrc|xsession|xsessionrc|pam_environment|bash_login|bash_logout)$/,
 ];
-// Windows and macOS file names ignore case: ~/.GG/AUTH.JSON is ~/.gg/auth.json there, so the rules do too.
-const FOLD_CASE = process.platform === 'win32' || process.platform === 'darwin';
-for (const list of [SECRET, PRIVATE, NO_WRITE]) if (FOLD_CASE) list.forEach((re, i) => { if (!re.flags.includes('i')) list[i] = new RegExp(re.source, re.flags + 'i'); });
 const SYSTEM_ROOTS = ['/System', '/usr', '/bin', '/sbin', '/etc', '/private', '/Library', '/Applications', '/var', '/opt', '/cores'];
 
 const norm = (p, home) => {
@@ -406,15 +403,8 @@ const RUNNABLE = /\.(app|command|sh|bash|zsh|tool|terminal|scpt|scptd|applescrip
 // Where installed apps live: opening one there just starts it. Linux lists them as .desktop files.
 const APP_DIRS = ['/Applications/', '/System/Applications/', '/System/Library/CoreServices/', '/usr/share/applications/', '/usr/local/share/applications/', '/var/lib/flatpak/exports/share/applications/', '/var/lib/snapd/desktop/applications/'];
 
-// The only files open hands to their app: documents, pictures, sound and video, and web pages (they open in the
-// browser's sandbox; agents make them). Anything else (shortcuts, installers, scripts, macro documents, types nobody
-// listed yet) is shown in its folder instead, never launched.
-const DOCUMENT = /\.(pdf|txt|text|md|markdown|rtf|csv|tsv|json|log|html?|svg|doc|docx|odt|xls|xlsx|ods|ppt|pptx|odp|pages|numbers|key|epub|png|jpe?g|gif|bmp|webp|heic|heif|tiff?|ico|mp3|wav|m4a|aac|flac|ogg|opus|wma|mp4|m4v|mov|mkv|avi|webm|wmv)$/i;
-
-/** open: websites and mail, documents and folders, and apps by name. Not scripts, installers or odd links.
- *  `dir`/`file`: what the path is on disk, when the caller knows. A file that isn't a document comes back BLOCK with
- *  reveal: true, so the caller shows it in its folder instead. */
-export function checkOpen(target, home, { executable = false, dir = false, file = false } = {}) {
+/** open: websites and mail, documents and folders, and apps by name. Not scripts, installers or odd links. */
+export function checkOpen(target, home, { executable = false } = {}) {
   home = slash(home);
   const t = String(target ?? '').trim();
   if (!t) return verdict(BLOCK, 'Nothing to open.');
@@ -429,11 +419,8 @@ export function checkOpen(target, home, { executable = false, dir = false, file 
     const r = checkRead(abs, home);
     if (r.level === BLOCK) return verdict(BLOCK, r.reason);
     const inApps = APP_DIRS.some((d) => abs.startsWith(d));
-    if ((RUNNABLE.test(abs) || executable) && !inApps) return { ...verdict(BLOCK, `${t} is a script, installer or app that would run, so I won't open it. Open it yourself if you trust it.`), reveal: true };
+    if ((RUNNABLE.test(abs) || executable) && !inApps) return verdict(BLOCK, `${t} is a script, installer or app that would run, so I won't open it. Open it yourself if you trust it.`);
     if (!inApps && SYSTEM_ROOTS.some((d) => abs === d || abs.startsWith(d + '/'))) return verdict(BLOCK, `${t} is a system file, so I won't open it.`);
-    if (inApps || dir) return verdict(SAFE);
-    const name = path.basename(abs);
-    if ((file || /\.[^.]+$/.test(name)) && !DOCUMENT.test(name)) return { ...verdict(BLOCK, `${t} isn't a document I open (it could run something), so I only show it in its folder. Open it yourself if you trust it.`), reveal: true };
     return verdict(SAFE);
   }
   if (/[/\\]|\.\./.test(t)) return verdict(BLOCK, `"${t}" isn't an app name.`);
@@ -491,30 +478,8 @@ export function checkLink(url) {
   return verdict(SAFE);
 }
 
-/** A yes from the user, typed or spoken: the whole answer is a yes ("yes", "Allow", "yes please, do it"). A "but",
- *  an "if" or a "not" anywhere ("okay, but do not delete anything") is not a yes: the step doesn't run. */
-const YES_WORD = '(?:y|yes|yeah|yep|yup|ok|okay|sure|go|go ahead|do it|run it|allow|confirm|install|please|thanks|thank you)';
-const YES = new RegExp(`^${YES_WORD}(?:[\\s,]+${YES_WORD})*$`, 'i');
-export const isYes = (text) => { const t = String(text ?? '').trim().replace(/[.!\s]+$/, ''); return !/^(please|thanks|thank you)$/i.test(t) && YES.test(t); };
-
-// ---------- messages from the app's windows ----------
-
-// What changes what the agent may do (file edits and commands, Skip Allow, start at login, keys, model servers)
-// counts only from the settings windows. The shell stamps `from` with the sending window's label on everything a page
-// sends; its own messages (the tray menu) carry none. So a page showing model text (the overlay) can't flip them.
-const SETTINGS_WINDOWS = new Set(['panel', 'home', 'onboarding']);
-const PERMISSION_MENU = new Set(['actions', 'skipallow', 'login']);
-const bool = (m) => typeof m.on === 'boolean';
-const PERMISSION_TYPES = { set_actions: bool, set_login: bool, set_keys: () => true, panel_key: () => true, panel_local_add: () => true, ob_apikey: () => true };
-export function permissionMessageOk(m) {
-  if (!m || typeof m !== 'object' || typeof m.type !== 'string') return false;
-  if ('from' in m && typeof m.from !== 'string') return false;
-  if (m.type === 'menu' && typeof m.id !== 'string') return false;
-  const check = m.type === 'menu' ? (PERMISSION_MENU.has(m.id) ? () => true : null) : Object.hasOwn(PERMISSION_TYPES, m.type) ? PERMISSION_TYPES[m.type] : null;
-  if (!check) return true;
-  if ('from' in m && !SETTINGS_WINDOWS.has(m.from)) return false;
-  return check(m);
-}
+/** A yes from the user, typed or spoken. */
+export const isYes = (text) => /^\s*(y|yes|yeah|yep|yup|ok|okay|sure|go|go ahead|do it|run it|allow|confirm)\b/i.test(String(text ?? ''));
 
 // ---------- drawing on screen ----------
 

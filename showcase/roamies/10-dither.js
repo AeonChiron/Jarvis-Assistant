@@ -968,11 +968,11 @@
               companion.emotion(window.Roamie.voiceOut?.feel() ?? 'neutral');
               companion.render(jst.dt, 256, 256);
               if (companion.ready) {
-                // On the desktop the animama characters are a face in a small round window with a HUD ring.
+                // On the desktop the animama characters are a face in a small round window with a thin HUD ring:
+                // nothing dark behind or around it (no fill, no black edges), only the face and the ring.
                 const r = R * 1.2;
                 ctx.save();
                 ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(6, 22, 26, 0.92)'; ctx.fill();
                 ctx.save(); ctx.clip(); ctx.imageSmoothingEnabled = true;
                 ctx.drawImage(companion.canvas, bx - r, by - r, r * 2, r * 2); ctx.restore();
                 ctx.lineWidth = Math.max(1.5, r * 0.04); ctx.strokeStyle = '#78ffe2';
