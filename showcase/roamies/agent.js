@@ -235,6 +235,11 @@
     };
     const followHold = (p) => {
       const sp = Math.hypot(env0.mouse.vx ?? 0, env0.mouse.vy ?? 0);
+      if (R.buddyMode) {
+        const dx = m.x - p[0], dy = m.y - p[1], distance = Math.hypot(dx, dy);
+        const approach = dx * (env0.mouse.vx ?? 0) + dy * (env0.mouse.vy ?? 0);
+        if (distance < m.radius * 1.2 || (distance < m.radius + 34 && sp < 320 && approach > distance * 12)) return true;
+      }
       // Only the bubble counts, not the body: it sits right beside the cursor, so heading its way is just moving
       // the cursor, and holding still for that let the cursor slide past it (it then seemed to swap sides).
       const open = b && !b.closing;
@@ -1236,11 +1241,11 @@
           }
           // Popped up beside the cursor: it goes where the cursor goes (until it's dragged somewhere).
           if (pen.held) { fol.on = false; m.drive = held ? null : penDrive; station.flee = 0; }
-          else if (!held && station.byCursor && presence.ptr) { follow(env, dt); station.flee = 0; }
+          else if (!held && (station.byCursor || R.buddyMode) && presence.ptr && !dock) { follow(env, dt); station.flee = 0; }
           else { fol.on = false; m.drive = null; }
           nativeStep(dt, self);
           // While drawing, stay put: the user's cursor is supposed to come over here.
-          if (!held && env.mouse && !pen.held && !station.byCursor) {
+          if (!held && env.mouse && !pen.held && !station.byCursor && !R.buddyMode) {
             const cx = env.mouse.x, cy = env.mouse.y, dBody = Math.hypot(cx - m.x, cy - m.y);
             // Pointing right at it or its bubble means "I want this"; hovering around it means "you're in my way".
             const onIt = dBody < m.radius * 1.1 || (b && hitBubble(b, cx, cy));

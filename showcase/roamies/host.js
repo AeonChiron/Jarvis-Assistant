@@ -76,7 +76,8 @@
 
   let buddyMode = false, savedSize = 'default';
   addEventListener('dblclick', (e) => {
-    if (buddyMode && Roamie.hitTest?.(e.clientX, e.clientY)) {
+    const body = Roamie.tiles?.find(t => t.creature.agent)?.creature.mover;
+    if (buddyMode && body && Math.hypot(body.x - e.clientX, body.y - e.clientY) < body.radius * 1.2) {
       e.preventDefault(); invoke('home_restore').catch(console.error);
     }
   });
