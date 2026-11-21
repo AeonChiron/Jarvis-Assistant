@@ -50,3 +50,15 @@ framing. Left out: its chat, memory, settings, backend, voice input and picture-
    plays a matching reaction.
 3. **Gestures:** a `companion` tool for the brain with the gesture catalog's names, so Jarvis gestures as he talks.
 4. **Effects:** reaction and gesture effects (particles, stickers, scene effects).
+
+## Step 0 progress (2026-11-21, paused at the usage limit)
+- animama cloned at `C:\Users\esteb\animama-src` (depth 1); LFS pulled for `content/included/avatars/` only
+  (Andrew.vrm 5.0 MB, Annie.vrm 4.3 MB). Gestures and reactions are small JSON files (`<id>.json` + `.meta.json`).
+- How animama drives a character (`ui/main/canvas/AvatarCanvasActor.tsx`): `new Avatar(camera, canvas, {
+  cursorLookAtInputProvider, motionCatalog, mediaCatalog })`, then `await avatar.load({ filePath, sourceUrl,
+  sourceKey, resourceUrls, springMode, windStrength, materialMode })`, then every frame `avatar.update(delta, {
+  speechTiming })` (lip sync from the lipsync bridge store). Emotions: `avatar.setEmotionalState(state, label)`.
+- Next: vendor `src/frontend/web/src` (+ `packages/runtime-contracts`, needed `content/included`) into
+  `showcase/companion/vendor/animama/`, a Vite project with alias `@` → vendor src and animama's dependency
+  versions (three 0.182, @pixiv/three-vrm 3.5.5, three.quarks 0.17.1, @mochiya/three-liltoon 0.1.9), write
+  `stage.ts`, build in GitHub Actions, render Andrew in the browser pane.
