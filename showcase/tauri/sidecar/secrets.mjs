@@ -66,18 +66,30 @@ export function createSecrets({ platform = process.platform, hands = '', dataDir
 
   // Encrypted blobs (Windows) or, in test runs only, plain values: one JSON file, owner-only.
   const fileStore = (file, seal, unseal, kind) => {
-    const read = async () => { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return {}; } };
+    // No file yet is an empty store; a file that can't be read or parsed is an error, never "empty" (saving over it
+    // would wipe every other key).
+    const read = async () => {
+      let text;
+      try { text = await fs.readFile(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return {}; throw e; }
+      try { return JSON.parse(text); } catch { throw new Error(`the key store ${path.basename(file)} can't be read, so nothing was changed`); }
+    };
+    let n = 0;
     const write = async (all) => {
       await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-      const tmp = `${file}.${process.pid}.tmp`;
-      await fs.writeFile(tmp, JSON.stringify(all, null, 2), { mode: 0o600 });
-      await fs.rename(tmp, file);
+      const tmp = `${file}.${process.pid}.${Date.now()}.${n++}.tmp`;
+      try {
+        await fs.writeFile(tmp, JSON.stringify(all, null, 2), { mode: 0o600 });
+        await fs.rename(tmp, file);
+      } catch (e) { await fs.rm(tmp, { force: true }).catch(() => {}); throw e; }
     };
+    // Saves and deletes run one at a time (read, change, write), so two at once can't drop each other's key.
+    let queue = Promise.resolve();
+    const serial = (fn) => { const p = queue.then(fn, fn); queue = p.catch(() => {}); return p; };
     return {
       kind,
       async get(name) { check(name); const v = (await read())[name]; return v == null ? null : unseal(v); },
-      async set(name, value) { check(name); const all = await read(); all[name] = await seal(value); await write(all); },
-      async delete(name) { check(name); const all = await read(); if (name in all) { delete all[name]; await write(all); } },
+      async set(name, value) { check(name); const sealed = await seal(value); return serial(async () => { const all = await read(); all[name] = sealed; await write(all); }); },
+      async delete(name) { check(name); return serial(async () => { const all = await read(); if (name in all) { delete all[name]; await write(all); } }); },
     };
   };
 
@@ -99,7 +111,8 @@ export function createSecrets({ platform = process.platform, hands = '', dataDir
   }
 
   if (platform === 'linux') {
-    const attrs = (name) => ['service', 'com.kenkai.roamies', 'account', name];
+    // Jarvis's own service name: com.kenkai.roamies belongs to the official Roamies app, installed beside it.
+    const attrs = (name) => ['service', 'com.aeonchiron.jarvisassistant', 'account', name];
     // secret-tool missing, or no keyring answering on the session bus: say which, so it can be fixed.
     const problem = (r) => {
       if (r.code === -1 && /ENOENT/.test(r.stderr)) return 'secret-tool isn\'t installed (it comes in libsecret-tools on Debian and Ubuntu, libsecret on Fedora and Arch)';
@@ -118,7 +131,7 @@ export function createSecrets({ platform = process.platform, hands = '', dataDir
       },
       async set(name, value) {
         check(name);
-        const r = await exec('secret-tool', ['store', '--label', `Roamies: ${name}`, ...attrs(name)], value);
+        const r = await exec('secret-tool', ['store', '--label', `Jarvis Assistant: ${name}`, ...attrs(name)], value);
         if (r.code !== 0) throw new Error(problem(r));
       },
       async delete(name) {

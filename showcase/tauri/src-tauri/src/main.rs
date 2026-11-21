@@ -1770,15 +1770,25 @@ fn login_item(app: &AppHandle, set: Option<bool>) {
         const KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
         use std::os::windows::process::CommandExt;
         let reg = |args: &[&str]| Command::new("reg").args(args).creation_flags(0x0800_0000).stdout(Stdio::null()).stderr(Stdio::null()).status().map(|s| s.success()).unwrap_or(false);
+        // Jarvis's own value name: "Roamies" is the official Roamies app's, installed beside it.
+        const NAME: &str = "Jarvis Assistant";
         if !installed {
             (false, false, false)
         } else {
+            let v = format!("\"{}\"", exe.display());
+            // Older builds wrote it as "Roamies": move that one over, but only when it starts this very exe.
+            let old_ours = Command::new("reg").args(["query", KEY, "/v", "Roamies"]).creation_flags(0x0800_0000).output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_lowercase().contains(&exe.display().to_string().to_lowercase())).unwrap_or(false);
+            if old_ours {
+                reg(&["delete", KEY, "/v", "Roamies", "/f"]);
+                reg(&["add", KEY, "/v", NAME, "/t", "REG_SZ", "/d", &v, "/f"]);
+            }
             match set {
-                Some(true) => { let v = format!("\"{}\"", exe.display()); reg(&["add", KEY, "/v", "Roamies", "/t", "REG_SZ", "/d", &v, "/f"]); }
-                Some(false) => { reg(&["delete", KEY, "/v", "Roamies", "/f"]); }
+                Some(true) => { reg(&["add", KEY, "/v", NAME, "/t", "REG_SZ", "/d", &v, "/f"]); }
+                Some(false) => { reg(&["delete", KEY, "/v", NAME, "/f"]); }
                 None => {}
             }
-            (true, reg(&["query", KEY, "/v", "Roamies"]), false)
+            (true, reg(&["query", KEY, "/v", NAME]), false)
         }
     };
     #[cfg(target_os = "linux")]

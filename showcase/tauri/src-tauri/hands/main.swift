@@ -1437,7 +1437,7 @@ func runGuide(_ rest: [String]) -> Never {
 // The user's own API keys (Fish Audio) live in their login keychain: encrypted at rest, locked with their Mac
 // login, and readable without a prompt only by this signed helper. A secret comes in on stdin and goes out on
 // stdout, never in arguments (other processes can read those).
-let secretService = "com.kenkai.roamies"
+let secretService = "com.aeonchiron.jarvisassistant" // Jarvis's own; com.kenkai.roamies is the official Roamies app's
 func secretName(_ i: Int) -> String {
     guard args.count > i, args[i].range(of: "^[a-z0-9-]{1,40}$", options: .regularExpression) != nil else { fail("bad secret name") }
     return args[i]

@@ -122,12 +122,15 @@ Windows and Linux uses [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvid
 
 ## Get started
 
+> **Jarvis Assistant** is a Windows fork of [Roamies](https://github.com/KenKaiii/Roamies) by KenKaiii (AGPL-3.0). Its installer, updates, issues and
+> security reports live at [AeonChiron/Jarvis-Assistant](https://github.com/AeonChiron/Jarvis-Assistant); the macOS and Linux links below are upstream Roamies builds.
+
 1. Install Roamies from the **Assets** list on the release page. The *Source code* downloads there are the code,
    not the app, and won't run on their own.
 
    **macOS (Apple silicon or Intel):** [Download the latest release](https://github.com/KenKaiii/Roamies/releases/latest) and open the `.dmg` for your Mac (`aarch64` for Apple silicon, `x64` for Intel). Requires macOS 13.5 or later.
 
-   **Windows:** [Download the latest release](https://github.com/KenKaiii/Roamies/releases/latest) and run `Roamies_<version>_x64-setup.exe` (the only file you need; the `.sig`, `.AppImage`, `.deb` and `.rpm` files
+   **Windows:** [Download the latest Jarvis Assistant release](https://github.com/AeonChiron/Jarvis-Assistant/releases/latest) and run `Jarvis.Assistant_<version>_x64-setup.exe` (the only file you need; the `.sig`, `.AppImage`, `.deb` and `.rpm` files
    aren't for Windows). Requires Windows 10 or later. It isn't code-signed yet, so Windows shows a SmartScreen warning the first time: click **More info**, then **Run anyway**.
 
    **Linux (beta, x86_64):** [Download the latest release](https://github.com/KenKaiii/Roamies/releases/latest) and pick one:
@@ -139,8 +142,8 @@ Windows and Linux uses [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvid
    **Development:** With Rust, Node.js 22+, the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) and, on macOS, the Xcode Command Line Tools installed:
 
    ```bash
-   git clone https://github.com/KenKaiii/Roamies.git
-   cd Roamies/showcase/tauri
+   git clone https://github.com/AeonChiron/Jarvis-Assistant.git
+   cd Jarvis-Assistant/showcase/tauri
    (cd sidecar && npm ci && npm test)
    ./build.sh dev        # debug build
    ./build.sh            # release bundle for this OS
@@ -299,7 +302,7 @@ the same license.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. [Open an issue](https://github.com/KenKaiii/Roamies/issues)
+Bug reports, ideas and pull requests are welcome. [Open an issue](https://github.com/AeonChiron/Jarvis-Assistant/issues) (problems in the shared Roamies code: [upstream](https://github.com/KenKaiii/Roamies/issues))
 to get started, read [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request, and report security problems as described in [SECURITY.md](SECURITY.md).
 
 ## Learn with me

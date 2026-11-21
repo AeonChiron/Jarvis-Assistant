@@ -6,11 +6,11 @@ them on, click and type in other apps, write files and run commands. Security re
 
 ## Supported versions
 
-Only the latest release gets security fixes: [latest GitHub release](https://github.com/KenKaiii/Roamies/releases/latest).
+Only the latest release gets security fixes: [latest Jarvis Assistant release](https://github.com/AeonChiron/Jarvis-Assistant/releases/latest).
 
 ## Reporting a vulnerability
 
-Please **do not open a public issue**. Report privately through [GitHub security advisories](https://github.com/KenKaiii/Roamies/security/advisories/new).
+Please **do not open a public issue**. Report privately through [Jarvis Assistant's GitHub security advisories](https://github.com/AeonChiron/Jarvis-Assistant/security/advisories/new). If it also affects upstream Roamies, report it there too: [Roamies security advisories](https://github.com/KenKaiii/Roamies/security/advisories/new).
 
 Include:
 
@@ -32,3 +32,10 @@ You'll get an acknowledgement within 7 days. Once a fix ships, the advisory will
 
 - an AI model choosing to do something you asked for or that your settings allow
 - attacks that need an already-compromised user account or machine
+
+## Known advisories
+
+- **glib 0.18.5 (Linux builds only):** the Linux GTK stack Tauri 2 depends on pins glib 0.18, which has a published
+  advisory for its `VariantStrIter` iterator. Jarvis Assistant ships Windows builds only, and nothing here calls that
+  API; it is not overridden by force because glib 0.18 is what the Tauri/gtk-rs release line supports. It will go away
+  with Tauri's move to the newer gtk-rs stack. (Audit 2026-11-21, F13.)

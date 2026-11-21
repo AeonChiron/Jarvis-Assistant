@@ -32,8 +32,9 @@ export function writeJson(file, data, { backup = false } = {}) {
     await fs.rename(tmp, file);
   };
   const next = (chains.get(file) ?? Promise.resolve()).then(run, run);
-  chains.set(file, next.catch(() => {}));
-  return next.catch((e) => console.error(`[store] write ${path.basename(file)} failed`, e));
+  chains.set(file, next.catch(() => {})); // the queue goes on after a failure
+  // The caller gets the failure too (it used to be swallowed, so a save that never landed looked done).
+  return next.catch((e) => { console.error(`[store] write ${path.basename(file)} failed`, e); throw e; });
 }
 
 /** Resolves once every write queued so far has landed (or failed), so quitting never cuts one off. */

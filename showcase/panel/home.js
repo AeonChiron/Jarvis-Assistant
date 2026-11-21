@@ -98,6 +98,8 @@
   const globe = window.createLedOrb?.($('.hud-globe'));
   let companion = null, selected = null, lastFrame = performance.now(), full = false;
   let meter = { level: 0, emotion: 'neutral', at: 0 };
+  const still = matchMedia('(prefers-reduced-motion: reduce)');
+  let drawn = '';
   window.__companionMeter = (m) => { meter = { ...m, at: performance.now() }; };
   window.__companionAction = (m) => { if (companion && ['gesture', 'reaction', 'emotion'].includes(m.action)) companion[m.action](m.name); };
   let framing = 'body';
@@ -135,7 +137,11 @@
         companion.emotion(now - meter.at < 300 ? meter.emotion : 'neutral');
         companion.render((now - lastFrame) / 1000);
         $('.hud-avatar-status').textContent = companion.error ? 'Character failed to load. Choose another character to retry.' : companion.ready ? '' : 'Loading character…';
-      } else globe?.render(mood(window.__panelState), 0, Math.min(innerWidth, innerHeight));
+      } else {
+        // With "reduce motion" on, the globe is a still picture: redrawn only when its mood or size changes.
+        const m = mood(window.__panelState), size = Math.min(innerWidth, innerHeight), key = `${m} ${size}`;
+        if (!still.matches || key !== drawn) { globe?.render(m, 0, size); drawn = key; }
+      }
     }
     lastFrame = now; requestAnimationFrame(frame);
   };

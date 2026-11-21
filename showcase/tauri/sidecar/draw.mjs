@@ -3,7 +3,7 @@
 // small SMILES reader for molecules, a small LaTeX reader for maths, the layering of flow diagrams and the countries a
 // map can show. No model-written code ever runs: the overlay only draws these structures.
 import { z } from 'zod';
-import { checkUrl } from './safety.mjs';
+import { checkFetch } from './safety.mjs';
 import { COUNTRIES } from './countries.mjs';
 
 export const LIMITS = { beats: 12, marks: 40, points: 200, parts3d: 40, atoms: 120, photoBytes: 800_000, iconBytes: 64_000,
@@ -447,10 +447,12 @@ export const describeParts = (entries) => entries.map(([id, p]) => `${id} ${p.de
 // ---------------------------------------------------------------- photos and favicons
 // Fetched through the same rules as web_fetch (public http(s) only, every redirect checked), size-capped, and handed
 // to the overlay as data URLs so it can dither them on its canvas without loading anything itself.
-async function getChecked(url, { fetchImpl = fetch, max, accept }) {
+// checkFetch also looks the name up (a public-looking name can point at this computer or the local network), on
+// every hop. The body is read only up to `max`, then the download is cancelled.
+async function getChecked(url, { fetchImpl = fetch, max, accept, lookup }) {
   let at = String(url), res;
   for (let hop = 0; ; hop++) {
-    const v = checkUrl(at);
+    const v = await checkFetch(at, lookup ? { lookup } : {});
     if (v.level === 'block') throw new Error(`Blocked for safety: ${v.reason}`);
     res = await fetchImpl(at, { headers: { 'user-agent': 'Roamies-Sidekick', accept }, redirect: 'manual', signal: AbortSignal.timeout(10_000) });
     const next = res.status >= 300 && res.status < 400 && res.headers.get('location');
@@ -461,9 +463,22 @@ async function getChecked(url, { fetchImpl = fetch, max, accept }) {
   if (!res.ok) throw new Error(`${res.status} from ${new URL(at).hostname}`);
   const len = +(res.headers.get('content-length') ?? 0);
   if (max && len > max) throw new Error('That picture is too big.');
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (max && buf.length > max) throw new Error('That picture is too big.');
+  const buf = await readCapped(res, max);
   return { buf, type: String(res.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase(), url: at };
+}
+async function readCapped(res, max) {
+  const tooBig = () => new Error('That picture is too big.');
+  if (!res.body?.getReader) { const buf = Buffer.from(await res.arrayBuffer()); if (max && buf.length > max) throw tooBig(); return buf; }
+  const reader = res.body.getReader(), parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (max && n > max) { await reader.cancel().catch(() => {}); throw tooBig(); }
+    parts.push(Buffer.from(value));
+  }
+  return Buffer.concat(parts);
 }
 const IMAGE = /^image\/(png|jpeg|jpg|gif|webp|x-icon|vnd\.microsoft\.icon|svg\+xml)$/;
 async function imageData(url, opts) {
@@ -472,15 +487,15 @@ async function imageData(url, opts) {
   return `data:${type};base64,${buf.toString('base64')}`;
 }
 /** A named thing's picture: its Wikipedia summary thumbnail (query), or a picture URL the model already found. */
-export async function photoFor({ query, url }, { fetchImpl = fetch } = {}) {
-  if (url) return { src: await imageData(url, { fetchImpl, max: LIMITS.photoBytes }), credit: new URL(url).hostname.replace(/^www\./, '') };
+export async function photoFor({ query, url }, { fetchImpl = fetch, lookup } = {}) {
+  if (url) return { src: await imageData(url, { fetchImpl, lookup, max: LIMITS.photoBytes }), credit: new URL(url).hostname.replace(/^www\./, '') };
   // Titles are case-sensitive after the first letter, which Wikipedia always capitalises.
   const title = String(query).trim().replace(/\s+/g, '_'), page = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.charAt(0).toUpperCase() + title.slice(1))}`;
-  const { buf } = await getChecked(page, { fetchImpl, max: 200_000, accept: 'application/json' });
+  const { buf } = await getChecked(page, { fetchImpl, lookup, max: 200_000, accept: 'application/json' });
   let j; try { j = JSON.parse(buf.toString('utf8')); } catch { throw new Error(`No Wikipedia page for "${query}".`); }
   const pic = j?.thumbnail?.source ?? j?.originalimage?.source;
   if (!pic) throw new Error(`Wikipedia has no picture for "${query}".`);
-  return { src: await imageData(pic, { fetchImpl, max: LIMITS.photoBytes }), title: j.title ?? query, credit: 'Wikipedia' };
+  return { src: await imageData(pic, { fetchImpl, lookup, max: LIMITS.photoBytes }), title: j.title ?? query, credit: 'Wikipedia' };
 }
 // What a model can be shown: not a drawing file (svg) or an icon.
 const LOOKABLE = /^image\/(png|jpe?g|gif|webp)$/;
@@ -516,11 +531,11 @@ export function createPhotos({ fetchImpl = fetch, max = 12 } = {}) {
 }
 const icons = new Map();
 /** A site's favicon as a data URL (cached), or null: the overlay draws a dot instead. */
-export async function faviconFor(link, { fetchImpl = fetch } = {}) {
+export async function faviconFor(link, { fetchImpl = fetch, lookup } = {}) {
   let host;
   try { const u = new URL(String(link)); if (!/^https?:$/.test(u.protocol)) return null; host = u.hostname; } catch { return null; }
   if (icons.has(host)) return icons.get(host);
-  const got = await imageData(`https://${host}/favicon.ico`, { fetchImpl, max: LIMITS.iconBytes }).catch(() => null);
+  const got = await imageData(`https://${host}/favicon.ico`, { fetchImpl, lookup, max: LIMITS.iconBytes }).catch(() => null);
   icons.set(host, got);
   return got;
 }
