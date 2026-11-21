@@ -988,7 +988,7 @@
   }
   // About: who makes Jarvis, and help.
   const MADE_BY = [
-    ['AeonChiron', 'Jarvis Assistant, built on Roamies', 'https://github.com/AeonChiron/Roamies', 'Open Jarvis Assistant on GitHub'],
+    ['AeonChiron', 'Jarvis Assistant, built on Roamies', 'https://github.com/AeonChiron/Jarvis-Assistant', 'Open Jarvis Assistant on GitHub'],
   ];
   function aboutPage() {
     return [

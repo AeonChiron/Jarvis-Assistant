@@ -40,7 +40,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0RERCM0MyMjVCOUI4QjcKUldTM3VMa2x3clBkcEdGUmVXWUhLWnRpZ2dySjJ6ZE9SQUNOOXJoYk5ndGpxWkdqdXpJeWl3V04K",
       "endpoints": [
-        "https://github.com/AeonChiron/Roamies/releases/latest/download/latest.json"
+        "https://github.com/AeonChiron/Jarvis-Assistant/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

@@ -93,7 +93,7 @@ const say = (text, mood) => (onboarding ? ob({ kind: 'say', text, mood }) : ui({
 const sayOut = say;
 
 const VERSION = process.env.ROAMIES_VERSION || '0.0.0';
-const UPDATE_REPO = 'AeonChiron/Roamies'; // Jarvis Assistant's own releases (signed with its own update key)
+const UPDATE_REPO = 'AeonChiron/Jarvis-Assistant'; // Jarvis Assistant's own releases (signed with its own update key)
 const HOME = os.homedir();
 // The chat works from ~/Roamies: commands run there and files given without a full path land there (Data/ and
 // Skills/ inside it stay write-protected by safety.mjs). Made up front so Claude Code always has a folder to start in.
@@ -2201,7 +2201,7 @@ async function saveDiagnostics() {
     logLine('diagnostics', { bytes: (await fs.stat(file)).size });
     reveal(file);
     const where = path.basename(path.dirname(file)) || 'your home folder';
-    say(`Saved ${path.basename(file)} in ${where}. Attach it to an issue at github.com/AeonChiron/Roamies/issues, or send it to whoever is helping you.`, 'happy');
+    say(`Saved ${path.basename(file)} in ${where}. Attach it to an issue at github.com/AeonChiron/Jarvis-Assistant/issues, or send it to whoever is helping you.`, 'happy');
     panelNote(`Saved ${path.basename(file)} in ${where}.`);
   } catch (e) {
     console.error('diagnostics', e);

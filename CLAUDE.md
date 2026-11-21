@@ -1,7 +1,7 @@
 # Jarvis Assistant: instructions for Claude
 
 This repo is **Jarvis Assistant**, the user's own app, forked from Roamies (KenKaiii/Roamies, AGPL-3.0). It is pushed
-to `AeonChiron/Roamies` (`main`); local branch `agora`. The official Roamies stays installed and untouched beside it.
+to `AeonChiron/Jarvis-Assistant` (`main`); local branch `agora`. The official Roamies stays installed and untouched beside it.
 The user's goal: bring many open-source repos into this one app.
 
 ## Rules that stop the loops (learned 2026-11-21)
