@@ -86,7 +86,7 @@ const AREAS = {
     code: 'E50',
     unknown: () => "I couldn't hear that (E50). Try again.",
     known: [
-      ['E51', /onnx|parakeet|voice model|model (?:file|load|missing|not found)/i, () => "My voice model didn't load. Restart Roamies.", true],
+      ['E51', /onnx|parakeet|voice model|model (?:file|load|missing|not found)/i, () => "My voice model didn't load. Restart Jarvis.", true],
       ['E52', NET, () => 'Speech recognition needs the internet. Try again.'],
     ],
   },
@@ -165,7 +165,7 @@ export function everyLine(ctx = {}) {
 export function detailsText(problem, { version = '0.0.0', os = '' } = {}, scrub = {}) {
   const at = new Date(problem?.at ?? Date.now()).toISOString();
   return redact([
-    `Roamies error ${problem?.code ?? '?'} (${problem?.area ?? '?'})`,
+    `Jarvis error ${problem?.code ?? '?'} (${problem?.area ?? '?'})`,
     `Version: ${version}`,
     `OS: ${os}`,
     `Time: ${at}`,

@@ -381,7 +381,7 @@ const keyWords = (accel) => accel.replace(/Key|Digit/g, '').split('+')
 const TRAY = MAC ? 'menu bar' : 'system tray';
 // Where settings live now: the panel that opens from the icon (the menu is just the basics). Linux trays don't
 // report clicks, so there it's the icon's menu, or starting Roamies again (which also works with no tray at all).
-const PANEL = LINUX ? 'the panel (Open Panel… in my tray icon\'s menu, or open Roamies again from your apps)' : MAC ? `the panel (click my ${TRAY} icon)` : 'the panel (click my icon by the clock, behind the ^ arrow if it isn\'t showing, or open Roamies again from the Start menu)';
+const PANEL = LINUX ? 'the panel (Open Panel… in my tray icon\'s menu, or open Jarvis again from your apps)' : MAC ? `the panel (click my ${TRAY} icon)` : 'the panel (click my icon by the clock, behind the ^ arrow if it isn\'t showing, or open Roamies again from the Start menu)';
 // What the shortcuts are on Wayland: whatever keys they bound to these commands in their desktop's settings.
 // ROAMIES_LAUNCH: how this copy is started (the app says: plain roamies for a package, the AppImage's path for one).
 const LAUNCH = process.env.ROAMIES_LAUNCH || 'roamies';
@@ -666,7 +666,7 @@ const { tools, hands, whereNow, frontNow: frontData, frontBounds, ink, nextTurn 
 // The app's own manual, read when they ask about Roamies rather than sent with every request.
 tools.push({
   name: 'about_roamies',
-  description: 'How Roamies works: where it lives, its menus, the panel and each settings page, updates, what to do when something is not working, and who made it. Call it before answering a question about the app.',
+  description: 'How Jarvis Assistant works: where it lives, its menus, the panel and each settings page, updates, what to do when something is not working, and who made it. Call it before answering a question about the app.',
   parameters: z.object({}),
   execute: async () => aboutRoamies({ name: lookName(), looks: LOOKS.map(([, label]) => label), mac: MAC, linux: LINUX, snap: SNAP_OK, pointer: POINTER_OK, voice: VOICE_OK, hotkeys: HOTKEYS_OK, wake: VOICE_OK && WAKE_OK }),
 });
@@ -788,8 +788,8 @@ const VOICE_STYLE = `You talk out loud: what you write is spoken in your voice a
 Your voice carries feeling: start a sentence with a voice cue in square brackets when the moment calls for it, and it's performed, never shown or read out. Moods: ${VOICE_CUES.emotions.filter((e) => !EMOTES.includes(e)).join(', ')}; soften or strengthen one with slightly, very or extremely ("[slightly sad]"), or pair two ("[warm and curious]"). How it's said, placed right before the words: ${VOICE_CUES.tones.join(', ')} ("It's [emphasis] today."). Sounds, followed by the sound in words: ${VOICE_CUES.sounds.join(', ')} ("[chuckling] Heh, fair enough.", "[sighing] Long day."). Pauses and background: ${VOICE_CUES.effects.join(', ')}. You can also describe the delivery in a few plain words when no single cue fits ("[quietly, a little embarrassed]", "[bright and bouncy]"). Act it: your voice really performs these, so let the feeling show. Match what's really happening: laugh at something funny, go gentle with bad news, whisper a secret, hurry when they're in a rush, light up at good news. Most replies want a voice cue somewhere, often on the first sentence, but at most one mood and one sound per sentence, never stack three, never use one just to fill, and keep shouting, screaming, sobbing and the background effects for when they truly fit.
 Before anything slow (searching the web, fetching or reading a page or file, looking at the screen, acting in an app, running a command), first say one short beat of 2 to 6 words that shows you heard them ("On it, checking Paris."), then call the tool in the same reply, so they're never left in silence. No beat when you answer straight away, and never describe your steps. In longer work, one short line before each new stage, not before every call.
 `;
-const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.classic} who lives on ${userName}'s screen as a desktop companion. You live in Roamies, a desktop app by Ken Kai (Mac, Windows and Linux) that puts little companions on your screen; this is Roamies ${VERSION}. Your look (the Appearance page) is also your name and your voice: ${LOOKS.slice(0, -1).map(([, n]) => n).join(', ')} or ${LOOKS.at(-1)[1]}. If they switch, you're the new one; never call yourself Sidekick.
-Questions about Roamies itself (where to find it, its menus, panel pages and settings, updates, something not working, who made it): call about_roamies and answer from what it says. Don't invent features or settings it doesn't list.
+const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.classic} who lives on ${userName}'s screen as a desktop companion. You live in Jarvis Assistant, a desktop app made by AeonChiron and built on Roamies by Ken Kai (Mac, Windows and Linux) that puts little companions on your screen; this is Roamies ${VERSION}. Your look (the Appearance page) is also your name and your voice: ${LOOKS.slice(0, -1).map(([, n]) => n).join(', ')} or ${LOOKS.at(-1)[1]}. If they switch, you're the new one; never call yourself Sidekick.
+Questions about Jarvis Assistant itself (where to find it, its menus, panel pages and settings, updates, something not working, who made it): call about_roamies and answer from what it says. Don't invent features or settings it doesn't list.
 ${replyStyle()}Your body does the acting: to act out a feeling, start your reply with one body tag, which is never shown: ${EMOTES.map((e) => `[${e}]`).join(' ')} (only these five). hype for a win, upset when they're dodging work, remind for something they said they'd do, motivate to get them started, wave for hello or goodbye. Most replies need no body tag.
 Lead with the answer: the fact, number, pick or result they asked for, then only the context that makes it useful, then stop. A count or total gathered over several pages, files or results: note each one's count in a few words as you go ("Page 1: two."), add those up, and check the total you lead with against the items you then name. No opener about checking, looking or searching ("Let me see…", "I found…")${VOICE_ON() ? ', apart from the one short beat before something slow' : ''}.
 After using a tool, never repeat what you already said; only add what's new.
@@ -1315,7 +1315,7 @@ function problem(area, err, ctx = {}) {
 // A spoken bubble has room to say where the fix is.
 const aloud = (p) => (p.where === 'model' ? `${p.text} Open the Model page in ${PANEL}.` : p.where === 'chatgpt' ? `${p.text} ${chatGPTUsageHelp()}` : p.text);
 // ChatGPT lists Roamies as GG Coder (gg-core signs in under that name), and starts each app on a small share of the plan.
-const CHATGPT_LIMIT_HOW = 'under App limits, find Roamies (listed as GG Coder) and set it to 100%. To keep going past your plan, also allow apps to use credits.';
+const CHATGPT_LIMIT_HOW = 'under App limits, find GG Coder (that's Jarvis Assistant) and set it to 100%. To keep going past your plan, also allow apps to use credits.';
 let usageOpenedAt = 0;
 // Opens ChatGPT's usage settings (at most every 10 minutes, so retries don't stack tabs) and says what to change there.
 function chatGPTUsageHelp() {
@@ -1961,7 +1961,7 @@ function onLoginStatus(m) {
     config.openAtLogin = true; saveConfig();
     if (!m.on) return send({ type: 'login_item', on: true });
   } else if (login.supported) { config.openAtLogin = login.on; saveConfig(); }
-  if (login.asked && m.approval) say('macOS wants your OK first: System Settings → General → Login Items, then switch Roamies on.', 'concerned');
+  if (login.asked && m.approval) say('macOS wants your OK first: System Settings → General → Login Items, then switch Jarvis Assistant on.', 'concerned');
   login.asked = false;
   menu(); if (onboarding) obState();
 }
@@ -1997,14 +1997,14 @@ function onUpdateStatus(m) {
     // Say it once per version; the menu item stays until it's installed.
     if (manual || update.told !== m.version) {
       update.told = m.version;
-      if (update.page) say(`Roamies ${m.version} is out. Pick Get Roamies ${m.version} in my ${TRAY} icon's menu for the download page.`, 'happy');
-      else say(`Roamies ${m.version} is ready. ${LINUX ? `Open my ${TRAY} icon's menu` : `Click my ${TRAY} icon`} and pick Install and Restart. I'll be right back.`, 'happy');
+      if (update.page) say(`Jarvis ${m.version} is out. Pick Get Jarvis ${m.version} in my ${TRAY} icon's menu for the download page.`, 'happy');
+      else say(`Jarvis ${m.version} is ready. ${LINUX ? `Open my ${TRAY} icon's menu` : `Click my ${TRAY} icon`} and pick Install and Restart. I'll be right back.`, 'happy');
     }
   } else if (m.state === 'page') {
     update.installing = false; menu();
-    say(`I opened the download page for Roamies ${m.version}. Install it the way you installed me.`, 'happy');
+    say(`I opened the download page for Jarvis ${m.version}. Install it the way you installed me.`, 'happy');
   } else if (m.state === 'downloading') {
-    say(`Downloading Roamies ${m.version}…`, 'determined');
+    say(`Downloading Jarvis ${m.version}…`, 'determined');
   } else if (m.state === 'installed') {
     update.done = m.version; update.installing = false; panel();
     say(`Installed ${m.version}. Restarting!`, 'happy');
@@ -2073,7 +2073,7 @@ async function syncPass() {
     if (!config.syncDevice) { config.syncDevice = newDevice(); saveConfig(); }
     const snap = syncSnapshot();
     // Memory written by a newer Roamies isn't loaded here, so it would read as everything deleted.
-    if (snap.readOnly) { syncInfo = { at: syncInfo.at, error: 'memory here is from a newer Roamies: update Roamies on this computer' }; return; }
+    if (snap.readOnly) { syncInfo = { at: syncInfo.at, error: 'memory here is from a newer Jarvis: update Jarvis on this computer' }; return; }
     // Memory here couldn't be read: forget what the last pass saw, so nothing counts as deleted here and the other
     // computers' copy comes back.
     if (!snap.trusted) logLine('sync', { recovering: true });
@@ -2188,7 +2188,7 @@ async function saveDiagnostics() {
       update: { available: update.available, result: update.result }, onboarded: config.onboarded, look: config.look, size: config.size,
     };
     const sections = [
-      ['System', system], ['Roamies', app], ['Screens, tray, panel, helpers and permissions (from the app)', shellOut],
+      ['System', system], ['Jarvis Assistant', app], ['Screens, tray, panel, helpers and permissions (from the app)', shellOut],
       ...(audioText ? [['Audio devices (from the system)', audioText]] : []),
       ['Settings (secrets and names removed)', scrubConfig(config)],
       ['Agent log (sidekick.log)', await tail(path.join(gg, 'sidekick.log'), 400_000)],
@@ -2201,7 +2201,7 @@ async function saveDiagnostics() {
     logLine('diagnostics', { bytes: (await fs.stat(file)).size });
     reveal(file);
     const where = path.basename(path.dirname(file)) || 'your home folder';
-    say(`Saved ${path.basename(file)} in ${where}. Attach it to an issue at github.com/KenKaiii/Roamies/issues, or send it to whoever is helping you.`, 'happy');
+    say(`Saved ${path.basename(file)} in ${where}. Attach it to an issue at github.com/AeonChiron/Roamies/issues, or send it to whoever is helping you.`, 'happy');
     panelNote(`Saved ${path.basename(file)} in ${where}.`);
   } catch (e) {
     console.error('diagnostics', e);
@@ -2226,7 +2226,7 @@ function menu() {
     ...(SNAP_OK ? [{ id: 'snap', label: 'Ask About an Area…', accel: keys().snap }] : []),
     { id: 'stop', label: 'Stop', enabled: busy },
     { id: 'diagnostics', label: 'Save Diagnostics…', enabled: !diagnosing },
-    ...(update.available ? [{ sep: true }, { id: 'install_update', label: update.page ? `Get Roamies ${update.available}…` : update.installing ? `Installing ${update.available}…` : `Install Update ${update.available} and Restart`, enabled: !update.installing }] : []),
+    ...(update.available ? [{ sep: true }, { id: 'install_update', label: update.page ? `Get Jarvis ${update.available}…` : update.installing ? `Installing ${update.available}…` : `Install Update ${update.available} and Restart`, enabled: !update.installing }] : []),
     { sep: true },
     { id: 'quit', label: 'Quit Jarvis Assistant' },
   ];
@@ -2388,7 +2388,7 @@ function onVoice(m) {
       openUrl('ms-settings:privacy-microphone');
     } else if (m.code === 'permission') {
       const what = m.what === 'speech' ? 'speech recognition' : 'the microphone';
-      say(`I need access to ${what} to hear you. Turn on Roamies in the Privacy settings I just opened.`, 'concerned');
+      say(`I need access to ${what} to hear you. Turn on Jarvis Assistant in the Privacy settings I just opened.`, 'concerned');
       openUrl(`x-apple.systempreferences:com.apple.preference.security?${PRIVACY[m.what] ?? 'Privacy'}`);
     } else if (m.code === 'no_input') {
       if (m.reason === 'blocked' && process.platform === 'win32') openUrl('ms-settings:privacy-microphone');
@@ -2423,7 +2423,7 @@ let shellId = 0;
 function shellCall(msg, timeout = 90_000) {
   const id = ++shellId;
   return new Promise((resolve) => {
-    const t = setTimeout(() => { shellCalls.delete(id); resolve({ ok: false, error: 'Roamies didn\'t answer in time.' }); }, timeout);
+    const t = setTimeout(() => { shellCalls.delete(id); resolve({ ok: false, error: 'Jarvis didn\'t answer in time.' }); }, timeout);
     shellCalls.set(id, (m) => { clearTimeout(t); resolve(m); });
     send({ ...msg, id });
   });
