@@ -1315,7 +1315,7 @@ function problem(area, err, ctx = {}) {
 // A spoken bubble has room to say where the fix is.
 const aloud = (p) => (p.where === 'model' ? `${p.text} Open the Model page in ${PANEL}.` : p.where === 'chatgpt' ? `${p.text} ${chatGPTUsageHelp()}` : p.text);
 // ChatGPT lists Roamies as GG Coder (gg-core signs in under that name), and starts each app on a small share of the plan.
-const CHATGPT_LIMIT_HOW = 'under App limits, find GG Coder (that's Jarvis Assistant) and set it to 100%. To keep going past your plan, also allow apps to use credits.';
+const CHATGPT_LIMIT_HOW = 'under App limits, find GG Coder (that is Jarvis Assistant) and set it to 100%. To keep going past your plan, also allow apps to use credits.';
 let usageOpenedAt = 0;
 // Opens ChatGPT's usage settings (at most every 10 minutes, so retries don't stack tabs) and says what to change there.
 function chatGPTUsageHelp() {

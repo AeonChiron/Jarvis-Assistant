@@ -23,8 +23,11 @@ The user's goal: bring many open-source repos into this one app.
 5. **Edit with the file tools or a saved script file**, never inline Python/sed with Windows paths in the shell.
 6. **UI first in the browser:** `panel/index.html?home` and the other pages run in a plain browser with sample data
    (launch config `jarvis-assistant-ui`, port 8766). Check there before spending a 25-minute build.
-7. **Tests:** `cd showcase/tauri/sidecar && npm test` (voicemodel's resume test is timing-sensitive: rerun alone
-   before believing a failure). The release workflow also runs the voice helper's `cargo test`.
+7. **Before every push** (in `showcase/tauri/sidecar`): `npm test`, then `for f in *.mjs; do node --check "$f"; done`,
+   then bundle the brain exactly as the build does: `npx --no-install esbuild sidekick.mjs --bundle --platform=node
+   --format=esm --target=node22 --outfile=$TEMP/sk.mjs` (tests don't load every file: a quote typo in sidekick.mjs
+   passed npm test and broke two 25-minute builds). voicemodel's resume test is timing-sensitive: rerun it alone
+   before believing a failure. The release workflow also runs the voice helper's `cargo test`.
 
 ## Where things are
 - Shell (Rust): `showcase/tauri/src-tauri/src/main.rs` (home window `show_home`, `home_full` + animama).
