@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:doki_doki",
+  "version": 1,
+  "name": "Doki Doki",
+  "description": "Pink manga lettering \"DOKI DOKI!\" pops up beside the cheek and jitters like a pounding heart, for flustered love or nervous excitement.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:heartbeat_04v1_faster",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "sticker",
+    "attachment": {
+      "kind": "sticker",
+      "around": "body",
+      "size": 0.23
+    },
+    "art": {
+      "image": "doki_doki-sheet.png",
+      "flipbook": {
+        "columns": 4,
+        "fps": 8,
+        "frames": 8,
+        "loop": "loop",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "opacity": 0,
+            "scale": 0.5,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1,
+            "t": 0.12
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "doki_doki-sheet.png",
+      "role": "image"
+    }
+  ]
+}

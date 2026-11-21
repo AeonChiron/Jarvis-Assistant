@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:sweat_drop",
+  "version": 1,
+  "name": "Sweat Drop",
+  "description": "A big comic anime sweat drop that pops onto the forehead beside the temple and slowly slides down, for nervous, caught-out or embarrassed moments.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:funny_sweat_01v1",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "emote",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "forehead",
+      "offset": {
+        "x": 0,
+        "y": 0.015,
+        "z": 0
+      },
+      "position": "right",
+      "rotationDeg": {
+        "x": 0,
+        "y": 0,
+        "z": -12
+      },
+      "scale": {
+        "x": 0.75,
+        "y": 0.75
+      }
+    },
+    "art": {
+      "image": "sweat_drop_ink_flipbook.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 10,
+        "frames": 4,
+        "loop": "pingpong",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "t": 0
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": -0.022
+            },
+            "t": 3
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "sweat_drop_ink_flipbook.png",
+      "role": "image"
+    }
+  ]
+}

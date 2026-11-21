@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:eye_0",
+  "version": 1,
+  "name": "Eye 0",
+  "description": "Tense circular eye hover that suggests shock, dread, or overwhelmed gloom.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:stun_expression_02v1",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "eyes",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "eyes",
+      "side": "right",
+      "mirror": true,
+      "scale": {
+        "x": 0.6,
+        "y": 0.6
+      }
+    },
+    "art": {
+      "image": "eye_0_r.png"
+    },
+    "faceOptions": {
+      "hideParts": [
+        "eye_highlight"
+      ]
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "eye_0_r.png",
+      "role": "image"
+    }
+  ]
+}

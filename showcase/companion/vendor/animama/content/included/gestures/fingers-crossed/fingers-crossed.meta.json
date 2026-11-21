@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "content_type": "gesture",
+  "content_id": "builtin:gesture:fingers-crossed",
+  "version": 1,
+  "semantic_key": "fingers_crossed",
+  "name": "Fingers Crossed",
+  "ai_description": "Use when hoping for something to go well, wishing someone luck or waiting on an outcome. Raises both hands beside the face with the fingers crossed, squeezes the eyes shut with a small hopeful smile, and gives two little wishing pumps.",
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [
+    {
+      "ref": "builtin:avatar-effect:kira_star",
+      "alias": "kira_star",
+      "content_type": "avatar_effect",
+      "config": {}
+    }
+  ],
+  "files": [
+    {
+      "path": "fingers-crossed.json",
+      "role": "sequence"
+    }
+  ]
+}

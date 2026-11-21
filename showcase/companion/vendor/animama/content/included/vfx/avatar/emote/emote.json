@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:emote",
+  "version": 1,
+  "name": "Emote !",
+  "description": "Floating exclamation mark for sudden alarm, urgency, or alerted curiosity.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:surprised_03",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "emote",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "top_edge",
+      "position": "right_corner",
+      "scale": {
+        "x": 1.7,
+        "y": 1.7
+      }
+    },
+    "art": {
+      "image": "emote-sheet.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 8,
+        "frames": 4,
+        "loop": "loop",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "opacity": 0,
+            "rotationDeg": 0,
+            "scale": 0.3,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1.3,
+            "t": 0.08
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": 0.012
+            },
+            "scale": 0.9,
+            "t": 0.16
+          },
+          {
+            "rotationDeg": -10,
+            "t": 0.22
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "rotationDeg": 7,
+            "scale": 1.05,
+            "t": 0.28
+          },
+          {
+            "rotationDeg": -4,
+            "t": 0.34
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.42
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "emote-sheet.png",
+      "role": "image"
+    }
+  ]
+}

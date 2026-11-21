@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "content_type": "gesture",
+  "content_id": "builtin:gesture:palms-up-shrug",
+  "version": 1,
+  "semantic_key": "shrug",
+  "name": "Palms Up Shrug",
+  "ai_description": "Use for \"who knows\", when you are unsure, or for a playful \"oh well\", not to rate something as so-so. Raises the shoulders with both palms turned up and a tilted head.",
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:funny_downer_01v1",
+      "alias": "funny_downer_01v1",
+      "content_type": "sound_effect",
+      "config": {},
+      "optional": true
+    }
+  ],
+  "files": [
+    {
+      "path": "palms-up-shrug.json",
+      "role": "sequence"
+    }
+  ]
+}

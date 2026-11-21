@@ -25,3 +25,11 @@ cd showcase/tauri/sidecar && npm ls --all
 cd showcase/tauri/src-tauri && cargo tree
 cd showcase/tauri/src-tauri/voice-win && cargo tree
 ```
+
+## Animama companion
+
+The embedded character engine and animation library come from
+[Animama](https://github.com/raymond-van/animama/tree/f612be08d5f1e91e8a9517c1766a11e197fb5725).
+The upstream license is in `showcase/companion/vendor/animama/LICENSE`. Andrew is by Raymond Van.
+Annie uses pixiv VRoid Project preset components. Artwork credits, terms and model provenance
+ship with the companion in `content/licenses/`.

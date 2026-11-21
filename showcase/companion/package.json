@@ -1,0 +1,25 @@
+{
+  "name": "jarvis-companion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@mochiya/three-liltoon": "0.1.9",
+    "@pixiv/three-vrm": "3.5.5",
+    "@pixiv/three-vrm-animation": "3.5.5",
+    "clsx": "^2.1.1",
+    "react": "^19.3.1",
+    "tailwind-merge": "^3.7.0",
+    "three": "0.182.0",
+    "three.quarks": "0.17.1",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@types/three": "0.182.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}

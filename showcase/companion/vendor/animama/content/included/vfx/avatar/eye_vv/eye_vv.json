@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:eye_vv",
+  "version": 1,
+  "name": "Eye VV",
+  "description": "Squeezed-shut \"> <\" eyes for flustered, giggly, or bashful delight.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:cute_chirpy_03",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "eyes",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "eyes",
+      "mirror": true,
+      "offset": {
+        "x": 0.006,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 0.6,
+        "y": 0.6
+      },
+      "side": "right"
+    },
+    "art": {
+      "image": "eye_vv_r.png"
+    },
+    "faceOptions": {
+      "hideParts": [
+        "eye_highlight"
+      ]
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "eye_vv_r.png",
+      "role": "image"
+    }
+  ]
+}

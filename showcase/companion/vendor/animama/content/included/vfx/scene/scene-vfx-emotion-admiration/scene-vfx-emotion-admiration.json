@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "content_type": "scene_effect",
+  "content_id": "builtin:scene-effect:background:scene-vfx-emotion-admiration",
+  "version": 1,
+  "name": "Emotion Admiration",
+  "description": "A sky-blue bloom behind the Avatar with gold stars drifting down and a field of twinkling glints, for admiring, starry-eyed moments.",
+  "dependencies": [],
+  "definition": {
+    "schema": "animama/scene-effect/1",
+    "kind": "background_layers",
+    "durationMs": null,
+    "coverUiOverlays": false,
+    "dismissOnInput": false,
+    "solid": {
+      "enabled": false,
+      "color": "#9fd4f7"
+    },
+    "pattern": {
+      "enabled": false,
+      "pattern": "none",
+      "color": "#ffffff",
+      "size": 10,
+      "spacing": 20,
+      "opacity": 0.3
+    },
+    "marquee": {
+      "enabled": false,
+      "items": [],
+      "itemSize": 72,
+      "gap": 24,
+      "rowGap": 18,
+      "direction": "left",
+      "itemRotationMode": "upright",
+      "itemRotationOffsetDeg": 0,
+      "speedPxPerSec": 100,
+      "opacity": 1
+    },
+    "gradient": {
+      "enabled": true,
+      "type": "radial",
+      "angleDeg": 180,
+      "centerX": 0.5,
+      "centerY": 0.32,
+      "stops": [
+        {
+          "color": "#f7fcff",
+          "position": 0
+        },
+        {
+          "color": "#dcf0ff",
+          "position": 0.4
+        },
+        {
+          "color": "#9fd4f7",
+          "position": 1
+        }
+      ]
+    },
+    "tile": {
+      "enabled": true,
+      "size": 180,
+      "opacity": 0.35,
+      "direction": "up",
+      "speedPxPerSec": 9,
+      "image": "bokeh-tile.png"
+    },
+    "screen": {
+      "enabled": false,
+      "kind": "rays",
+      "color": "#ffffff",
+      "opacity": 0.4,
+      "count": 20,
+      "centerX": 0.5,
+      "centerY": 0.3,
+      "spiky": false,
+      "turnSeconds": 60,
+      "throbPerSec": 0,
+      "seed": 1
+    },
+    "scatters": [
+      {
+        "enabled": true,
+        "items": [
+          {
+            "id": "star",
+            "kind": "image",
+            "label": "Gold twinkle star",
+            "image": "twinkle-star-gold.png"
+          }
+        ],
+        "count": 12,
+        "seed": 88,
+        "minSize": 26,
+        "maxSize": 48,
+        "minRotationDeg": -180,
+        "maxRotationDeg": 180,
+        "minOpacity": 0.8,
+        "maxOpacity": 1,
+        "regionTop": 0,
+        "regionBottom": 1,
+        "keepFaceClear": true,
+        "direction": "diagonal-down-left",
+        "speedPxPerSec": 32,
+        "minSpinDegPerSec": 20,
+        "maxSpinDegPerSec": 45,
+        "alternateSpin": true,
+        "pulse": "none"
+      },
+      {
+        "enabled": true,
+        "items": [
+          {
+            "id": "glint",
+            "kind": "image",
+            "label": "Silver glint",
+            "image": "glint-silver.png"
+          }
+        ],
+        "count": 18,
+        "seed": 14,
+        "minSize": 14,
+        "maxSize": 34,
+        "minRotationDeg": 0,
+        "maxRotationDeg": 45,
+        "minOpacity": 0.8,
+        "maxOpacity": 1,
+        "regionTop": 0.04,
+        "regionBottom": 0.5,
+        "keepFaceClear": true,
+        "direction": "static",
+        "speedPxPerSec": 0,
+        "minSpinDegPerSec": 0,
+        "maxSpinDegPerSec": 0,
+        "alternateSpin": false,
+        "pulse": "twinkle"
+      }
+    ],
+    "flash": {
+      "enabled": false,
+      "color": "#ffffff",
+      "durationMs": 260
+    }
+  },
+  "files": [
+    {
+      "path": "twinkle-star-gold.png",
+      "role": "image"
+    },
+    {
+      "path": "glint-silver.png",
+      "role": "image"
+    },
+    {
+      "path": "bokeh-tile.png",
+      "role": "image"
+    }
+  ]
+}

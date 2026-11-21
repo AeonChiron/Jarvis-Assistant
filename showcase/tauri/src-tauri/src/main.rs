@@ -39,8 +39,7 @@ const ONBOARDING_LABEL: &str = "onboarding";
 const PANEL_LABEL: &str = "panel";
 /// Jarvis Assistant's app window: the panel's pages as a normal window with a HUD (panel/home.js).
 const HOME_LABEL: &str = "home";
-/// The animama companion was started by the home window's full screen (so leaving it closes it again).
-static ANIMAMA_OURS: AtomicBool = AtomicBool::new(false);
+
 /// When the panel last hid because it lost focus: a click on the icon that caused it mustn't reopen it.
 static PANEL_BLURRED: Mutex<Option<Instant>> = Mutex::new(None);
 /// Counts opens, so a close that's still playing its animation can tell it was opened again and stay up.
@@ -100,6 +99,11 @@ fn to_sidecar(app: &AppHandle, msg: &Value) {
 }
 
 fn to_overlays(app: &AppHandle, msg: &Value) {
+    if msg.get("kind").and_then(Value::as_str) == Some("companion") {
+        if let Some(w) = app.get_webview_window(HOME_LABEL) {
+            let _ = w.eval(format!("window.__companionAction&&__companionAction({msg})"));
+        }
+    }
     if let Some([x, y, w, h]) = point_target(msg) {
         // A drawing: go to the screen the marked thing is on, even if the cursor is elsewhere.
         move_sidekick_to(app, x + w / 2.0, y + h / 2.0);
@@ -658,6 +662,7 @@ fn panel_hide(app: AppHandle) {
 /// Opens Jarvis Assistant's app window, or brings it forward: a normal window (title bar, taskbar button, Alt+Tab,
 /// pinnable) showing the panel's pages with the HUD. Closing it quits the app, so nothing keeps running unasked.
 fn show_home(app: &AppHandle) {
+    to_overlays(app, &json!({ "kind": "buddy_mode", "on": false }));
     if let Some(w) = app.get_webview_window(HOME_LABEL) {
         let _ = w.unminimize();
         let _ = w.show();
@@ -676,8 +681,12 @@ fn show_home(app: &AppHandle) {
         Ok(w) => {
             let app2 = app.clone();
             w.on_window_event(move |e| {
+                if let tauri::WindowEvent::Resized(_) = e {
+                    if app2.get_webview_window(HOME_LABEL).and_then(|w| w.is_minimized().ok()) == Some(true) {
+                        let _ = home_minimize(app2.clone());
+                    }
+                }
                 if let tauri::WindowEvent::CloseRequested { .. } = e {
-                    stop_animama();
                     app2.exit(0);
                 }
             });
@@ -686,42 +695,34 @@ fn show_home(app: &AppHandle) {
     }
 }
 
-/// Where the animama companion app is installed for this user (its own installer's default), if it is.
-fn animama_exe() -> Option<std::path::PathBuf> {
-    let p = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("Programs").join("Animama").join("Animama.exe");
-    p.exists().then_some(p)
-}
-
-/// Closes animama if the home window's full screen started it (one the user opened themselves is left alone).
-fn stop_animama() {
-    if !ANIMAMA_OURS.swap(false, Ordering::SeqCst) {
-        return;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let _ = Command::new("taskkill").args(["/IM", "Animama.exe", "/T", "/F"]).creation_flags(0x0800_0000).status();
-    }
-}
-
-/// The home window's full screen (its button, F11, Esc). With `companion`, animama comes along in full screen and
-/// goes when it ends.
+/// Full screen changes only the home window, independently of the character.
 #[tauri::command]
-fn home_full(app: AppHandle, on: bool, companion: bool) {
+fn home_full(app: AppHandle, on: bool) -> Result<(), String> {
+    app.get_webview_window(HOME_LABEL).ok_or("Home window unavailable")?
+        .set_fullscreen(on).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_minimize(app: AppHandle) -> Result<(), String> {
+    let w = app.get_webview_window(HOME_LABEL).ok_or("Home window unavailable")?;
+    w.hide().map_err(|e| e.to_string())?;
+    follow_cursor(&app);
+    to_overlays(&app, &json!({ "kind": "buddy_mode", "on": true }));
+    Ok(())
+}
+
+#[tauri::command]
+fn home_restore(app: AppHandle) {
+    show_home(&app);
+}
+
+/// Forward only animation measurements; the overlay remains the sole audio player.
+#[tauri::command]
+fn companion_meter(app: AppHandle, level: f64, emotion: String) {
     if let Some(w) = app.get_webview_window(HOME_LABEL) {
-        let _ = w.set_fullscreen(on);
-    }
-    if on && companion {
-        if !ANIMAMA_OURS.load(Ordering::SeqCst) {
-            if let Some(exe) = animama_exe() {
-                match Command::new(exe).spawn() {
-                    Ok(_) => ANIMAMA_OURS.store(true, Ordering::SeqCst),
-                    Err(e) => eprintln!("animama failed to start: {e}"),
-                }
-            }
-        }
-    } else {
-        stop_animama();
+        let level = if level.is_finite() { level.clamp(0.0, 1.0) } else { 0.0 };
+        let msg = json!({"level":level, "emotion":emotion.chars().take(40).collect::<String>()});
+        let _ = w.eval(format!("window.__companionMeter&&__companionMeter({msg})"));
     }
 }
 
@@ -2023,7 +2024,7 @@ fn main() {
         .manage(TalkChord(Mutex::new(vec!["control".into(), "option".into()])))
         .manage(VoiceModel(Mutex::new(None)))
         .manage(PermGuide(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![buddy, ink_wait, set_hot, set_hit_rects, sidecar_send, set_typing, perm_status, perm_request, perm_guide, screen_check, open_settings, onboarding_finish, guide_close, panel_hide, home_full, esc_watch, relaunch, focus_guide, guide_aside, drag_window])
+        .invoke_handler(tauri::generate_handler![buddy, ink_wait, set_hot, set_hit_rects, sidecar_send, set_typing, perm_status, perm_request, perm_guide, screen_check, open_settings, onboarding_finish, guide_close, panel_hide, home_full, home_minimize, home_restore, companion_meter, esc_watch, relaunch, focus_guide, guide_aside, drag_window])
         .on_menu_event(|app, e| match e.id.as_ref() {
             "quit" => app.exit(0),
             "restart" => spawn_sidecar(app),

@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "backgroundLayerPresets": [],
+  "focusLinePresets": [
+    {
+      "presetId": "dark",
+      "entry": {
+        "id": "scene-vfx-focus-lines-dark",
+        "label": "Focus Lines Dark",
+        "kind": "focus_lines",
+        "enabled": true,
+        "dismissOnInput": false,
+        "renderPlacement": "behind_avatar",
+        "lineCount": 100,
+        "color": "#111111",
+        "opacity": 0.92,
+        "baseThicknessPx": 10,
+        "thicknessVariationPx": 5,
+        "lengthVariation": 0.18,
+        "overscanPx": 48,
+        "target": {
+          "kind": "avatar_face",
+          "paddingXPx": 48,
+          "paddingYPx": 96
+        },
+        "animation": {
+          "minVisibleMs": 90,
+          "maxVisibleMs": 280,
+          "minHiddenMs": 50,
+          "maxHiddenMs": 200,
+          "opacityJitter": 0.18
+        }
+      }
+    },
+    {
+      "presetId": "light-streak",
+      "entry": {
+        "id": "scene-vfx-focus-lines-light-streak",
+        "label": "Focus Lines Light Streak",
+        "kind": "focus_lines",
+        "enabled": true,
+        "dismissOnInput": false,
+        "renderPlacement": "behind_avatar",
+        "lineCount": 50,
+        "color": "#ffffff",
+        "opacity": 0.92,
+        "baseThicknessPx": 10,
+        "thicknessVariationPx": 5,
+        "lengthVariation": 0.18,
+        "overscanPx": 48,
+        "target": {
+          "kind": "avatar_face",
+          "paddingXPx": 48,
+          "paddingYPx": 96
+        },
+        "animation": {
+          "minVisibleMs": 90,
+          "maxVisibleMs": 280,
+          "minHiddenMs": 50,
+          "maxHiddenMs": 200,
+          "opacityJitter": 0.18
+        }
+      }
+    }
+  ]
+}

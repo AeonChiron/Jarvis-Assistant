@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:angry",
+  "version": 1,
+  "name": "Angry",
+  "description": "Comic anger glyph that sharpens irritated, disapproving, or combative reactions.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:anger_explode_03",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "emote",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "forehead",
+      "position": "left",
+      "scale": {
+        "x": 0.77,
+        "y": 0.77
+      }
+    },
+    "art": {
+      "image": "angry-sheet.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 8,
+        "frames": 4,
+        "loop": "loop",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "pulse": {
+        "cyclesPerSecond": 1.6,
+        "scaleMax": 1.06,
+        "scaleMin": 0.86
+      },
+      "keyframes": {
+        "frames": [
+          {
+            "opacity": 0,
+            "scale": 0.3,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1.3,
+            "t": 0.1
+          },
+          {
+            "scale": 0.9,
+            "t": 0.2
+          },
+          {
+            "scale": 1,
+            "t": 0.28
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "angry-sheet.png",
+      "role": "image"
+    }
+  ]
+}

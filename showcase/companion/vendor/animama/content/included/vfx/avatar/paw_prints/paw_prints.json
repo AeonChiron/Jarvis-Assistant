@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:paw_prints",
+  "version": 1,
+  "name": "Paw Prints",
+  "description": "Two small pink cat paw prints pop up beside the right paw, stepping up and outward, and bounce on each knead, for a playful, kittenish \"nya~\".",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:bouncy_bubble_01v2",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "body",
+    "attachment": {
+      "kind": "body",
+      "bone": "head",
+      "facing": "camera",
+      "offset": {
+        "x": -0.188,
+        "y": -0.019,
+        "z": 0.141
+      },
+      "size": 0.08
+    },
+    "art": {
+      "image": "paw_prints_mirrored_flipbook.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 6,
+        "frames": 4,
+        "loop": "once",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "opacity": 0,
+            "rotationDeg": 0,
+            "scale": 0.3,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1.18,
+            "t": 0.1
+          },
+          {
+            "scale": 1,
+            "t": 0.18
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.326
+          },
+          {
+            "rotationDeg": 6,
+            "scale": 1.12,
+            "t": 0.396
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.506
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.656
+          },
+          {
+            "rotationDeg": 6,
+            "scale": 1.1,
+            "t": 0.726
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.836
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 0.986
+          },
+          {
+            "rotationDeg": 6,
+            "scale": 1.12,
+            "t": 1.056
+          },
+          {
+            "rotationDeg": 0,
+            "scale": 1,
+            "t": 1.166
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "paw_prints_mirrored_flipbook.png",
+      "role": "image"
+    }
+  ]
+}

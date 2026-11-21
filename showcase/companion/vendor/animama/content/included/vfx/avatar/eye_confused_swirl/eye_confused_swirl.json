@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:eye_confused_swirl",
+  "version": 1,
+  "name": "Eye Confused Swirl",
+  "description": "Swirling eye hover for confusion, dizziness, or anxious uncertainty.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:wobble_riser_01v2",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "eyes",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "eyes",
+      "mirror": true,
+      "scale": {
+        "x": 0.6,
+        "y": 0.6
+      },
+      "side": "right"
+    },
+    "art": {
+      "image": "eye_confused_swirl-sheet.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 8,
+        "frames": 4,
+        "loop": "loop",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "spin": {
+        "degreesPerSecond": 171.887339,
+        "direction": "clockwise"
+      }
+    },
+    "faceOptions": {
+      "hideParts": [
+        "eye_highlight"
+      ]
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "eye_confused_swirl-sheet.png",
+      "role": "image"
+    }
+  ]
+}

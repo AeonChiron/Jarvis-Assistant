@@ -7,6 +7,10 @@ cd "$(dirname "$0")"
 rm -rf dist && mkdir -p dist
 cp ../desktop.html dist/
 cp -R ../roamies ../onboarding ../panel dist/
+npm --prefix ../companion ci
+npm --prefix ../companion run build
+cp -R ../companion/dist dist/companion
+cp -R ../companion/vendor/animama/content/included dist/companion/content
 ../tauri/sidecar/bundle.sh
 # Ship a Node.js runtime with the app, for the target being built (--target <triple>, else this machine).
 TARGET=""; prev=""; for a in "$@"; do [ "$prev" = "--target" ] && TARGET="$a"; prev="$a"; done

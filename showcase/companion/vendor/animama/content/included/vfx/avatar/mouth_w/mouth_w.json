@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:mouth_w",
+  "version": 1,
+  "name": "Mouth w",
+  "description": "Small w-shaped mouth decal for cute, puckered, or bashfully playful expressions.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:cute_01v1",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "mouth",
+    "attachment": {
+      "kind": "face_surface",
+      "area": "mouth",
+      "part": "face_skin",
+      "pivot": "center",
+      "scale": {
+        "x": 1.6,
+        "y": 1.6
+      }
+    },
+    "art": {
+      "image": "mouth_w.png"
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "mouth_w.png",
+      "role": "image"
+    }
+  ]
+}

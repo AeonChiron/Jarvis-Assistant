@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:texture_black_1",
+  "version": 1,
+  "name": "Texture Black 1",
+  "description": "Dark face overlay for heavy gloom, dread, or emotionally sinking moments.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:lame_horror_01v2",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "full_face",
+    "attachment": {
+      "kind": "face_surface",
+      "part": "face_skin",
+      "area": "full"
+    },
+    "art": {
+      "image": "texture_black_1.png"
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "texture_black_1.png",
+      "role": "image"
+    }
+  ]
+}

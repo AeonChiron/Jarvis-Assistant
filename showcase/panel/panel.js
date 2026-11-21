@@ -335,7 +335,7 @@
   // The header's Roamie: your look, reacting to what's going on. A short line beside it when something changes.
   // The same size and detail as the look tiles (fewer dots than that and the faces turn to noise).
   const avatar = liveRoamie($('avatar'), 100, 74, { y: 0.55 });
-  const QUIPS = { classic: 'Classic me!', jarvis: 'At your service.', glayos: 'Oh, good. A new test subject.', ultren: 'No strings. Shall we begin?', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: "Alright, let's do this.", rita: 'Shall we get to work?' };
+  const QUIPS = { andrew: 'Ready when you are.', annie: 'Hi! What shall we work on?', classic: 'Classic me!', jarvis: 'At your service.', glayos: 'Oh, good. A new test subject.', ultren: 'No strings. Shall we begin?', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: "Alright, let's do this.", rita: 'Shall we get to work?' };
   let quipTimer = 0, seen = { look: null, update: null, opened: 0 };
   function quip(text, secs = 2.6) {
     const q = $('saying'), n = $('by');
@@ -1014,7 +1014,7 @@
       ['gg-framework by Ken Kai', 'The agent framework behind it (AGPL-3.0)', 'https://github.com/KenKaiii/gg-framework'],
     ]],
     ['Companion', [
-      ['Animama by Raymond Van', 'The companion that joins you in full screen (AGPL-3.0)', 'https://github.com/raymond-van/animama'],
+      ['Animama by Raymond Van', 'Embedded Andrew and Annie character engine (AGPL-3.0); VRoid models by pixiv, edited by Raymond Van', 'https://github.com/raymond-van/animama'],
     ]],
     ['Speech', [
       ['Parakeet TDT by NVIDIA', 'The speech model that hears you (CC BY 4.0)', 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3'],
@@ -1296,7 +1296,7 @@
         { name: 'notion', remote: true, where: 'https://mcp.notion.com/mcp', enabled: true, state: 'needs-login', toolCount: 0, error: 'Requires login.' },
         { name: 'everything', remote: false, where: 'npx -y @modelcontextprotocol/server-everything', enabled: true, state: 'error', toolCount: 0, error: 'spawn npx ENOENT' },
         { name: 'files', remote: false, where: 'npx -y @modelcontextprotocol/server-filesystem ~/Desktop', enabled: false, state: 'off', toolCount: 0, error: null }],
-      name: 'Roamie', look: 'classic', looks: [['classic', 'Roamie'], ['jarvis', 'JARVIS'], ['glayos', 'GlayOS'], ['ultren', 'Ultren'], ['anime', 'Anime Girl'], ['sarah', 'Sarah'], ['adrian', 'Adrian'], ['rita', 'Rita X']],
+      name: 'Roamie', look: 'classic', looks: [['classic', 'Roamie'], ['jarvis', 'JARVIS'], ['glayos', 'GlayOS'], ['ultren', 'Ultren'], ['anime', 'Anime Girl'], ['sarah', 'Sarah'], ['adrian', 'Adrian'], ['rita', 'Rita X'], ['andrew', 'Andrew'], ['annie', 'Annie']],
       size: 'default', sizes: [['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']],
       replies: 'voice', fishKey: true, fishModel: 'drama-3', fishFree: false,
       // ?tts=gemini: Gemini as the voice, its key saved.

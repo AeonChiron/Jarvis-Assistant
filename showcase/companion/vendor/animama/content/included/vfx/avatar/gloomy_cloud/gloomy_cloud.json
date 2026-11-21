@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:gloomy_cloud",
+  "version": 1,
+  "name": "Gloomy Cloud",
+  "description": "A small dark purple-blue gloom cloud with fading streaks hovers just above the head, the anime personal rain cloud for a sad, deflated sigh.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:disappointment_03",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "body",
+    "attachment": {
+      "kind": "body",
+      "bone": "head",
+      "facing": "camera",
+      "offset": {
+        "x": 0,
+        "y": 0.29,
+        "z": 0
+      },
+      "size": 0.13
+    },
+    "art": {
+      "image": "gloomy_cloud-sheet.png",
+      "flipbook": {
+        "columns": 4,
+        "fps": 4,
+        "frames": 4,
+        "loop": "loop",
+        "rows": 1
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "offset": {
+              "x": 0,
+              "y": 0.012
+            },
+            "opacity": 0,
+            "scale": 0.7,
+            "t": 0
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "opacity": 1,
+            "scale": 1.04,
+            "t": 0.3
+          },
+          {
+            "scale": 1,
+            "t": 0.45
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": -0.006
+            },
+            "t": 1.1
+          },
+          {
+            "offset": {
+              "x": 0,
+              "y": -0.002
+            },
+            "t": 1.9
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "gloomy_cloud-sheet.png",
+      "role": "image"
+    }
+  ]
+}

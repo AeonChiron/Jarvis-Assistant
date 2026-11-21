@@ -51,7 +51,10 @@
       // points with a lit heart, and a HUD reticle at cursor size) or a character from roamies/people.js
       // ('anime', 'sarah', 'adrian', 'rita', 'ultren', 'glayos'). Moves, sizes and everything else are shared.
       const drawn = (l) => (l === 'jarvis' ? Roamie.jarvis : Roamie.people?.[l]);
-      const pickLook = (l) => (drawn(l) ? l : 'classic');
+      const pickLook = (l) => (drawn(l) || window.JarvisCompanion?.isCharacter(l) ? l : 'classic');
+      let companion = null, portrait = null;
+      const clearCompanion = () => { companion?.dispose(); companion = null; portrait = null; };
+      addEventListener('pagehide', clearCompanion);
       let look = pickLook(typeof location !== 'undefined' ? new URLSearchParams(location.search).get('look') : null);
       const jst = { spin: 0, dt: 0.016 };
       // Each hand springs to its pose in the body's own space (o: its offset from the body), so it moves with the body
@@ -591,7 +594,7 @@
         ghost: () => !!plug?.ghost?.(),
         morph,
         get look() { return look; },
-        setLook(l) { look = pickLook(l); jst.spin = 0; jst.tail = null; },
+        setLook(l) { if (l !== look) clearCompanion(); look = pickLook(l); jst.spin = 0; jst.tail = null; },
         resize(env) {
           lastEnv = env;
           const S = Roamie.unit(env);
@@ -856,6 +859,13 @@
             rect = [Math.max(0, Math.floor((dx0 - a - tox) / a) * a + tox), Math.max(0, Math.floor((dy0 - a - toy) / a) * a + toy),
               Math.min(gw, Math.ceil((dx1 + 1 + a - tox) / a) * a + tox), Math.min(gh, Math.ceil((dy1 + 1 + a - toy) / a) * a + toy)];
           }
+          if (window.JarvisCompanion?.isCharacter(look)) {
+            const body = [Math.max(0, Math.floor((bx - R * 1.6) / P)), Math.max(0, Math.floor((by - R * 2) / P)),
+              Math.min(gw, Math.ceil((bx + R * 1.6) / P)), Math.min(gh, Math.ceil((by + R * 2) / P))];
+            if (body[2] > body[0] && body[3] > body[1]) {
+              rect = rect ? [Math.min(rect[0], body[0]), Math.min(rect[1], body[1]), Math.max(rect[2], body[2]), Math.max(rect[3], body[3])] : body;
+            }
+          }
           // What the plugin draws off the grid (glass bubbles, tags, cards) widens the patch to cover it, glow and all.
           const ext = clear && rect ? plug?.extent?.() : null;
           if (ext) {
@@ -868,7 +878,7 @@
           // A fingerprint of the picture: the lit cells, where the patch sits and the glide offset. NaN (never equal)
           // whenever something is also drawn outside the grid or the CRT effect is playing.
           let sig = NaN;
-          if (clear && pd && !performing && !crtXform() && !mo && (!plug || plug.quiet?.())) {
+          if (!window.JarvisCompanion?.isCharacter(look) && clear && pd && !performing && !crtXform() && !mo && (!plug || plug.quiet?.())) {
             let h = 2166136261 ^ (rect[0] * 73856093) ^ (rect[1] * 19349663) ^ (rect[2] * 83492791) ^ rect[3];
             for (let y = pd[1] * K; y < pd[3] * K; y++) for (let i = y * IW + pd[0] * K, e = y * IW + pd[2] * K; i < e; i++) h = Math.imul(h ^ u32[i], 16777619);
             const glide = !!m.drive && pres.state === 'shown';
@@ -938,6 +948,28 @@
               ctx.fillRect(bx - r, by - r, r * 2, r * 2);
             }
             ctx.restore();
+          }
+          if (o.id === 'panel' && window.JarvisCompanion?.isCharacter(look)) {
+            // Use the VRM's own thumbnail for the small previews in Appearance.
+            if (!portrait) {
+              portrait = new Image();
+              portrait.src = '../companion/content/avatars/' + (look === 'annie' ? 'Annie' : 'Andrew') + '.jpeg';
+            }
+            if (portrait.naturalWidth) ctx.drawImage(portrait, bx - R, by - R, R * 2, R * 2);
+          } else if (window.JarvisCompanion?.isCharacter(look)) {
+            if (!companion) {
+              try { companion = JarvisCompanion.mount(document.createElement('canvas')); companion.load(look); }
+              catch (error) { console.error('Companion renderer unavailable', error); }
+            }
+            if (companion) {
+              companion.speaking(window.Roamie.voiceOut?.level() ?? 0);
+              companion.emotion(window.Roamie.voiceOut?.feel() ?? 'neutral');
+              companion.render(jst.dt, 256, 320);
+              if (companion.ready) {
+                ctx.save(); ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(companion.canvas, bx - R * 1.6, by - R * 2, R * 3.2, R * 4); ctx.restore();
+              }
+            }
           }
           // Text and anything else drawn over the grid sits where the grid had it (snapped), then slides with it.
           const sn = glideSnap();

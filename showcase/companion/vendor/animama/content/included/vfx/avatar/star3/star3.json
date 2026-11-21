@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:star3",
+  "version": 1,
+  "name": "Star3",
+  "description": "A big star and two small sparkles in each eye for awe, delight, or energized admiration.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:bright_eyes",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "eyes",
+    "attachment": {
+      "kind": "face_surface",
+      "area": "eyes",
+      "layout": "single",
+      "part": "eye_iris"
+    },
+    "art": {
+      "image": "star3-sheet.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 8,
+        "frames": 4,
+        "loop": "loop",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "pulse": {
+        "cyclesPerSecond": 1.6,
+        "scaleMax": 1.2,
+        "scaleMin": 1
+      }
+    },
+    "faceOptions": {
+      "hideParts": [
+        "eye_highlight"
+      ]
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "star3-sheet.png",
+      "role": "image"
+    }
+  ]
+}

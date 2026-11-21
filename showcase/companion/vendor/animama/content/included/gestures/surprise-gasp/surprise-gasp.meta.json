@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "content_type": "gesture",
+  "content_id": "builtin:gesture:surprise-gasp",
+  "version": 1,
+  "semantic_key": "surprise_gasp",
+  "name": "Surprise Gasp",
+  "ai_description": "Use for a sudden shock, startling news or an \"oh no!\" moment; startled, not delighted. Gasps and leans back with both hands to the cheeks and wide eyes.",
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [
+    {
+      "ref": "builtin:avatar-effect:emote",
+      "alias": "emote",
+      "content_type": "avatar_effect",
+      "config": {}
+    }
+  ],
+  "files": [
+    {
+      "path": "surprise-gasp.json",
+      "role": "sequence"
+    }
+  ]
+}

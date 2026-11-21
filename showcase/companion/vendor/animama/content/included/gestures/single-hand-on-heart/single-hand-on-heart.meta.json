@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "content_type": "gesture",
+  "content_id": "builtin:gesture:single-hand-on-heart",
+  "version": 1,
+  "semantic_key": "single-hand-on-heart",
+  "name": "Hand on Heart",
+  "ai_description": "Use while speaking sincerely: heartfelt gratitude, empathy or a personal promise. Holds the right hand over the heart with a calm, gentle face.",
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [
+    {
+      "ref": "builtin:avatar-effect:heart_pop",
+      "alias": "heart_pop",
+      "content_type": "avatar_effect",
+      "config": {}
+    }
+  ],
+  "files": [
+    {
+      "path": "single-hand-on-heart.json",
+      "role": "sequence"
+    }
+  ]
+}

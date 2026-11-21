@@ -7,13 +7,13 @@ import { DEFAULT_VOICE } from '../fish.mjs';
 const src = (p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
 const side = src('../sidekick.mjs'), guide = src('../../../onboarding/onboarding.js');
 const looks = [...side.slice(side.indexOf('const LOOKS = ['), side.indexOf('];', side.indexOf('const LOOKS = ['))).matchAll(/\['(\w+)', '([^']+)', (DEFAULT_VOICE|'(\w+)')\]/g)];
-assert.deepEqual(looks.map((m) => m[1]), ['classic', 'jarvis', 'glayos', 'ultren', 'anime', 'sarah', 'adrian', 'rita']);
+assert.deepEqual(looks.map((m) => m[1]), ['classic', 'jarvis', 'glayos', 'ultren', 'anime', 'sarah', 'adrian', 'rita', 'andrew', 'annie']);
 const voices = Object.fromEntries(looks.map((m) => [m[1], m[4] ?? null]));
 assert.equal(voices.classic, null, 'Roamie uses DEFAULT_VOICE');
 assert.equal(DEFAULT_VOICE, '2680da81de8348a68e1f4dbaa79272f1');
 assert.equal(voices.jarvis, 'e13fa398a7f445a685316a3de6089ce7');
 // Regression: Roamie spoke with JARVIS's voice (the default was JARVIS's ID).
-assert.equal(new Set([DEFAULT_VOICE, ...Object.values(voices).filter(Boolean)]).size, 8, 'every look has its own voice');
+assert.equal(new Set([DEFAULT_VOICE, ...Object.values(voices).filter(Boolean)]).size, 8, 'original eight voices remain available; Andrew and Annie use existing voices');
 assert.ok(!/config\.fishVoice/.test(side), 'a saved fishVoice (the old JARVIS default) is never used');
 assert.equal(voices.anime, 'd8f3b4c1199f4568a767ec54112d2b17');
 assert.equal(voices.sarah, '933563129e564b19a115bedd57b7406a');
@@ -26,14 +26,14 @@ for (const [, id, label] of looks) assert.ok(guide.includes(`['${id}', '${label}
 {
   const obj = (text, name) => new Function(`return ${text.match(new RegExp(`const ${name} = (\\{[^}]*\\})`))[1]}`)();
   const said = obj(side, 'LOOK_GREETINGS');
-  assert.deepEqual(Object.keys(said), looks.map((m) => m[1]), 'a greeting for every look');
+  assert.deepEqual(Object.keys(said).sort(), looks.map((m) => m[1]).sort(), 'a greeting for every look');
   assert.deepEqual(obj(src('../../../panel/panel.js'), 'QUIPS'), said, 'Settings shows the spoken greeting');
   assert.deepEqual(obj(guide, 'LOOK_QUIPS'), said, 'the setup guide shows the spoken greeting');
   const set = side.slice(side.indexOf('function setLook('), side.indexOf('\n}\n', side.indexOf('function setLook(')));
   assert.match(set, /if \(changed && VOICE_ON\(\) && !busy\)/, 'only for a new look, with voice on, and not over a reply');
   assert.match(set, /v\.say\(LOOK_GREETINGS\[l\]\)/);
   // Each talks its own way, in the full prompt and in Lite mode, and the prompt names every look.
-  assert.deepEqual(Object.keys(obj(side, 'LOOK_STYLE')), looks.map((m) => m[1]), 'a talking style for every look');
+  assert.deepEqual(Object.keys(obj(side, 'LOOK_STYLE')).sort(), looks.map((m) => m[1]).sort(), 'a talking style for every look');
   assert.match(side, /Personality: \$\{LOOK_STYLE\[config\.look\] \?\? LOOK_STYLE\.classic\}/);
   assert.match(side, /style: LOOK_STYLE\[config\.look\]/);
   assert.match(side, /your name and your voice: \$\{LOOKS\.slice\(0, -1\)/);

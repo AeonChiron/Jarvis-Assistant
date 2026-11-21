@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "content_type": "gesture",
+  "content_id": "builtin:gesture:small-shy-wave",
+  "version": 1,
+  "semantic_key": "shy_wave",
+  "name": "Small Wave",
+  "ai_description": "Use for a timid hello or a quiet, shy goodbye. Gives a small wave near the shoulder, palm toward the viewer, with a tilted head.",
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "small-shy-wave.json",
+      "role": "sequence"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:eye_o",
+  "version": 1,
+  "name": "Eye O",
+  "description": "Wide open eye hover for alarm, startled curiosity, or sudden emotional intensity.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:surprised_02v2",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "eyes",
+    "attachment": {
+      "kind": "face_landmark",
+      "landmark": "eyes",
+      "mirror": true,
+      "scale": {
+        "x": 0.55,
+        "y": 0.55
+      },
+      "side": "right"
+    },
+    "art": {
+      "image": "eye_o_r.png"
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "opacity": 0,
+            "scale": 0.4,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1.2,
+            "t": 0.08
+          },
+          {
+            "scale": 0.94,
+            "t": 0.18
+          },
+          {
+            "scale": 1,
+            "t": 0.28
+          }
+        ]
+      }
+    },
+    "faceOptions": {
+      "hideParts": [
+        "eye_highlight"
+      ]
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "eye_o_r.png",
+      "role": "image"
+    }
+  ]
+}

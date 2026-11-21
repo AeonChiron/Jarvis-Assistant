@@ -20,7 +20,7 @@
   const buddyGone = (ms) => { buddyOff = performance.now() + ms; Roamie.buddy.onEvent?.({ state: 'gone' }); };
   Roamie.buddy = {
     onEvent: null,
-    available: () => performance.now() > buddyOff,
+    available: () => !buddyMode && !window.JarvisCompanion?.isCharacter(Roamie.currentLook) && performance.now() > buddyOff,
     show: (msg) => invoke('buddy', { msg: { ...msg, on: true } }).then((ok) => { if (!ok) buddyGone(10000); }, () => buddyGone(60000)),
     hide: () => invoke('buddy', { msg: { on: false } }).catch(() => {}),
   };
@@ -74,6 +74,18 @@
     }, 120);
   }
 
+  let buddyMode = false, savedSize = 'default';
+  addEventListener('dblclick', (e) => {
+    if (buddyMode && Roamie.hitTest?.(e.clientX, e.clientY)) {
+      e.preventDefault(); invoke('home_restore').catch(console.error);
+    }
+  });
+  setInterval(() => {
+    if (Roamie.voiceOut?.playing() || Roamie._wasSpeaking) {
+      Roamie._wasSpeaking = !!Roamie.voiceOut?.playing();
+      invoke('companion_meter', { level: Roamie.voiceOut?.level() ?? 0, emotion: Roamie.voiceOut?.feel() ?? 'neutral' }).catch(() => {});
+    }
+  }, 66);
   let agent = null;
   const getAgent = () => (agent ??= Roamie.tiles?.find((t) => t.creature?.agent)?.creature.agent ?? null);
 
@@ -83,7 +95,7 @@
   const field = document.createElement('input');
   Object.assign(field.style, { position: 'fixed', left: '0', top: '0', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' });
   // Its name is its look's (the sidecar's LOOKS).
-  const NAMES = { classic: 'Roamie', jarvis: 'JARVIS', glayos: 'GlayOS', ultren: 'Ultren', anime: 'Anime Girl', sarah: 'Sarah', adrian: 'Adrian', rita: 'Rita X' };
+  const NAMES = { classic: 'Roamie', jarvis: 'JARVIS', glayos: 'GlayOS', ultren: 'Ultren', anime: 'Anime Girl', sarah: 'Sarah', adrian: 'Adrian', rita: 'Rita X', andrew: 'Andrew', annie: 'Annie' };
   field.setAttribute('aria-label', 'Message for Roamie');
   field.autocomplete = 'off'; field.spellcheck = false;
   document.addEventListener('DOMContentLoaded', () => document.body.appendChild(field));
@@ -507,13 +519,22 @@
 
   window.__roamieHost = (m) => {
     Roamie.wake?.(); // the frame loop naps while the sidekick is hidden
+    if (m.kind === 'buddy_mode') {
+      if (buddyMode === !!m.on) return;
+      buddyMode = Roamie.buddyMode = !!m.on;
+      if (buddyMode) { Roamie.buddy?.hide(); for (const t of Roamie.tiles ?? []) t.creature.setForm?.('cursor'); getAgent()?.show({ summoned: true }); }
+      else { for (const t of Roamie.tiles ?? []) t.creature.setForm?.(savedSize); getAgent()?.hide(); }
+      return;
+    }
+    if (m.kind === 'companion') { window.dispatchEvent(new CustomEvent('companion-action', { detail: m })); return; }
     if (m.kind === 'speech') { Roamie.voiceOut?.handle(m); return; } // plays on, even while it changes screens
     if (m.kind === 'volume') { Roamie.voiceOut?.setVolume(m.v); if (Roamie.sfx) Roamie.sfx.volume = m.v; return; }
     if (held) { held.q.push(m); return; }
     if (m.kind === 'notch') { if (Roamie.notch) { Roamie.notch.enabled = !!m.on; if (m.style) Roamie.notch.style = m.style; if (!m.on) Roamie.notch.close(); } return; }
     if (m.kind === 'sound') { if (Roamie.sfx) Roamie.sfx.enabled = m.on; return; }
-    if (m.kind === 'size') { for (const t of Roamie.tiles ?? []) t.creature.setForm?.(m.size); return; }
+    if (m.kind === 'size') { savedSize = m.size; if (buddyMode) return; for (const t of Roamie.tiles ?? []) t.creature.setForm?.(m.size); return; }
     if (m.kind === 'look') {
+      Roamie.currentLook = m.look;
       for (const t of Roamie.tiles ?? []) t.creature.setLook?.(m.look);
       field.setAttribute('aria-label', `Message for ${NAMES[m.look] ?? NAMES.classic}`);
       if (Roamie.notch) { Roamie.notch.name = NAMES[m.look] ?? NAMES.classic; Roamie.notch.look = m.look; }

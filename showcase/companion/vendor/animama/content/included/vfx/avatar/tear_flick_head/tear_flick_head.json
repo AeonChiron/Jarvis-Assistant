@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:tear_flick_head",
+  "version": 1,
+  "name": "Tear Flick",
+  "description": "One tiny glinting droplet is flicked off beside the right cheek, arcs outward and then drifts slowly down with a glint, for brushing away a tear and staying brave. Head-anchored, so it stays clear of the face after the hand moves on.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:digital_droplet",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "body",
+    "attachment": {
+      "kind": "body",
+      "bone": "head",
+      "facing": "camera",
+      "offset": {
+        "x": -0.09,
+        "y": 0.044,
+        "z": 0.157
+      },
+      "size": 0.06
+    },
+    "art": {
+      "image": "tear_flick_flipbook.png",
+      "flipbook": {
+        "columns": 2,
+        "fps": 10,
+        "frames": 4,
+        "loop": "once",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "keyframes": {
+        "frames": [
+          {
+            "offset": {
+              "x": 0,
+              "y": 0
+            },
+            "opacity": 0,
+            "rotationDeg": -35,
+            "scale": 0.4,
+            "t": 0
+          },
+          {
+            "offset": {
+              "x": -0.007,
+              "y": 0.004
+            },
+            "opacity": 1,
+            "rotationDeg": -28,
+            "scale": 1.2,
+            "t": 0.03
+          },
+          {
+            "offset": {
+              "x": -0.018,
+              "y": 0.008
+            },
+            "rotationDeg": -18,
+            "scale": 1,
+            "t": 0.07
+          },
+          {
+            "offset": {
+              "x": -0.03,
+              "y": 0.007
+            },
+            "rotationDeg": -6,
+            "t": 0.11
+          },
+          {
+            "offset": {
+              "x": -0.043,
+              "y": 0
+            },
+            "rotationDeg": 6,
+            "scale": 0.96,
+            "t": 0.16
+          },
+          {
+            "offset": {
+              "x": -0.052,
+              "y": -0.009
+            },
+            "rotationDeg": 14,
+            "scale": 0.93,
+            "t": 0.2
+          },
+          {
+            "offset": {
+              "x": -0.06,
+              "y": -0.02
+            },
+            "rotationDeg": 20,
+            "scale": 0.9,
+            "t": 0.24
+          },
+          {
+            "offset": {
+              "x": -0.064,
+              "y": -0.027
+            },
+            "rotationDeg": 28,
+            "scale": 0.97,
+            "t": 0.4
+          },
+          {
+            "offset": {
+              "x": -0.067,
+              "y": -0.033
+            },
+            "rotationDeg": 32,
+            "scale": 0.9,
+            "t": 0.55
+          },
+          {
+            "offset": {
+              "x": -0.071,
+              "y": -0.045
+            },
+            "rotationDeg": 35,
+            "scale": 0.95,
+            "t": 0.9
+          },
+          {
+            "offset": {
+              "x": -0.073,
+              "y": -0.051
+            },
+            "scale": 0.88,
+            "t": 1.05
+          },
+          {
+            "offset": {
+              "x": -0.077,
+              "y": -0.065
+            },
+            "rotationDeg": 38,
+            "scale": 0.86,
+            "t": 1.5
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "tear_flick_flipbook.png",
+      "role": "image"
+    }
+  ]
+}

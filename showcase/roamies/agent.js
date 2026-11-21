@@ -1199,7 +1199,7 @@
         presence.ptr = !R.game && mx != null && mx >= 0 && my >= 0 && mx <= W && my <= H ? [mx, my] : null;
         if (popping) { if (presence.ptr) follow(env, dt); else { m.drive = null; fol.on = false; } }
         const onStage = stage();
-        if (presence.auto) {
+        if (presence.auto && !R.buddyMode) {
           const hover = env.mouse?.active && Math.hypot(env.mouse.x - m.x, env.mouse.y - m.y) < k.R * 1.5;
           // A turn in progress (#83) and a voice still talking both count: an answer moved onto the card has no bubble
           // left to keep it here, and leaving mid-sentence left nothing on screen to stop it with.

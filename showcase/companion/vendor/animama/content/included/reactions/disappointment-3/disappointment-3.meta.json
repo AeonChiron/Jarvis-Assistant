@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "content_type": "reaction",
+  "content_id": "builtin:reaction:disappointment-3",
+  "version": 1,
+  "name": "Disappointment Reaction 3",
+  "ai_description": "Reusable avatar reaction clip",
+  "placement_hint": {
+    "emotion": "disappointment",
+    "intensity": 3
+  },
+  "implementation": {
+    "kind": "anima_clip",
+    "file_role": "sequence"
+  },
+  "dependencies": [
+    {
+      "ref": "builtin:particle-effect:gloom-wisps",
+      "alias": "gloom-wisps",
+      "content_type": "particle_effect",
+      "config": {}
+    },
+    {
+      "ref": "builtin:avatar-effect:gloom_lines",
+      "alias": "gloom_lines",
+      "content_type": "avatar_effect",
+      "config": {}
+    }
+  ],
+  "files": [
+    {
+      "path": "disappointment-3.json",
+      "role": "sequence"
+    }
+  ]
+}

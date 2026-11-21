@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "content_type": "avatar_effect",
+  "content_id": "builtin:avatar-effect:idea_bulb",
+  "version": 1,
+  "name": "Idea Bulb",
+  "description": "A cartoon light bulb pops on above and beside the head, then glows with a gentle pulse, for sudden bright ideas and confident \"got it!\" moments.",
+  "dependencies": [
+    {
+      "ref": "builtin:sound-effect:thought_bubble_chime",
+      "content_type": "sound_effect",
+      "alias": "on-apply",
+      "optional": true
+    }
+  ],
+  "definition": {
+    "schema": "animama/avatar-effect/2",
+    "region": "sticker",
+    "attachment": {
+      "kind": "sticker",
+      "around": "head",
+      "offset": {
+        "x": 0.12,
+        "y": 0.09
+      },
+      "rotationDeg": -8,
+      "size": 0.12
+    },
+    "art": {
+      "image": "idea_bulb_flipbook.png",
+      "flipbook": {
+        "columns": 3,
+        "fps": 12,
+        "frames": 5,
+        "loop": "once",
+        "rows": 2
+      }
+    },
+    "motion": {
+      "pulse": {
+        "cyclesPerSecond": 1.2,
+        "scaleMax": 1.04,
+        "scaleMin": 0.96
+      },
+      "keyframes": {
+        "frames": [
+          {
+            "opacity": 0,
+            "scale": 0.3,
+            "t": 0
+          },
+          {
+            "opacity": 1,
+            "scale": 1.3,
+            "t": 0.12
+          },
+          {
+            "scale": 0.9,
+            "t": 0.22
+          },
+          {
+            "scale": 1,
+            "t": 0.32
+          }
+        ]
+      }
+    },
+    "soundAlias": "on-apply"
+  },
+  "files": [
+    {
+      "path": "idea_bulb_flipbook.png",
+      "role": "image"
+    }
+  ]
+}
