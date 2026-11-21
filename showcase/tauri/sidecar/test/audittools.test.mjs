@@ -84,7 +84,9 @@ const isWin = process.platform === 'win32';
 }
 
 // ---------- F06: Return and coordinate clicks ask first when their effect is unknown; risky asks ignore Skip Allow ----------
-{
+// The hands helper acts in apps on macOS and Windows only (on Linux screenshots don't go through it), as in hands.test.
+if (!['darwin', 'win32'].includes(process.platform)) console.log('F06 confirmations: skipped (macOS and Windows only)');
+else {
   const acts = () => calls().filter((c) => c[0] === 'act');
   // Skip Allow on, and the user says no: a Delete click still asks, and nothing runs.
   fs.writeFileSync(log, '');
