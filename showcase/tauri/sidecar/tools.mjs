@@ -11,6 +11,7 @@ import { parseSipsSize, readProblem, rematch, sameBounds, shotFits, shotMap, sho
 import { ASK, BLOCK, checkDrawAction, checkFetch, checkOpen, checkRead, checkWrite, classifyCommand, isRiskyClick, isYes, riskyKind } from './safety.mjs';
 import { CARDS, DrawArgs, LIMITS, checkDraw, createLists, createParts, createPhotos, describeParts, faviconFor, pickTextMatch, quizNote, resolveTargets } from './draw.mjs';
 import { plain } from './intro.mjs';
+import { reveal as revealFile } from './diagnostics.mjs';
 import { linuxSession, seesPointer } from './platform.mjs';
 import { addCommitment, forgetFact, getCommitment, parseDue, parseRepeat, repeatLabel, updateCommitment } from './store.mjs';
 import { snoozeTarget, snoozeUntil } from './snooze.mjs';
@@ -22,8 +23,21 @@ export const expand = (p) => path.resolve(String(p).replace(/^~(?=$|\/|\\)/, HOM
 const clip = (s, n) => (s.length > n ? s.slice(0, n) + `\n…(${s.length - n} more characters)` : s);
 // windowsHide: no console window flashing up for each command or screenshot on Windows.
 // onLine: called with each line of stderr as it arrives (the hands helper's live progress).
-export const run = (cmd, args, { onLine, ...opts } = {}) => new Promise((res) => {
-  const child = execFile(cmd, args, { maxBuffer: 8 << 20, timeout: 60_000, windowsHide: true, ...opts }, (err, stdout, stderr) => res({ err, stdout: String(stdout), stderr: String(stderr) }));
+// signal: Stop ends the process and everything it started (Windows: taskkill /T on its own PID, never by name;
+// elsewhere its process group), so a shell's child can't finish the job after the user said stop.
+export const run = (cmd, args, { onLine, signal, ...opts } = {}) => new Promise((res) => {
+  if (signal?.aborted) return res({ err: Object.assign(new Error('Stopped.'), { code: 'ABORT_ERR' }), stdout: '', stderr: '' });
+  const group = !!signal && process.platform !== 'win32';
+  const child = execFile(cmd, args, { maxBuffer: 8 << 20, timeout: 60_000, windowsHide: true, ...(group ? { detached: true } : {}), ...opts }, (err, stdout, stderr) => {
+    signal?.removeEventListener('abort', stop);
+    res({ err: signal?.aborted ? Object.assign(new Error('Stopped.'), { code: 'ABORT_ERR' }) : err, stdout: String(stdout), stderr: String(stderr) });
+  });
+  function stop() {
+    if (!child.pid) return;
+    if (process.platform === 'win32') execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+    else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
+  }
+  signal?.addEventListener('abort', stop, { once: true });
   if (!onLine || !child.stderr) return;
   let buf = '';
   child.stderr.on('data', (d) => {
@@ -162,6 +176,24 @@ function controlList(controls, texts = []) {
 }
 // A safety verdict: blocked throws with the reason, otherwise returns the checked absolute path.
 const allowed = (v) => { if (v.level === BLOCK) throw new Error(`Blocked for safety: ${v.reason}`); return v.path; };
+// act_in_app keys that press the focused control (send a message, submit a form), and the boxes where Return only searches.
+const ACTIVATE_KEY = /^((cmd|command|ctrl|control|shift|alt|option|meta|win)\+)*(return|enter|kp_enter|space)$/i;
+const SEARCH_FIELD = /search|find|filter|query|look ?up|address|url|buscar|busca|suche|recherche|cerca|zoek|cari|搜索|検索|검색/i;
+// search_files: what ripgrep and grep leave out (key and password files and folders; the read rules below still
+// check every file they return).
+const SEARCH_SKIP_FILES = ['*.pem', '*.p12', '*.pfx', '*.key', '*.keystore', '*.jks', '.env', '.env.*', 'id_rsa*', 'id_ed25519*', 'id_ecdsa*', 'id_dsa*', '.netrc', '.npmrc', '.pypirc', '.git-credentials', 'auth.json', 'secrets.json', '*_history', 'Cookies', 'Login Data', 'logins.json', 'key4.db'];
+const SEARCH_SKIP_DIRS = ['.ssh', '.gnupg', '.aws', '.azure', '.tauri', '.password-store', '.pki', 'keyrings', '.gg'];
+/** rg/grep output with --null (file, NUL, line:text) → "file:line:text" lines, only for files the read rules allow. */
+export function filterSearchOutput(out) {
+  const ok = new Map();
+  return String(out ?? '').split('\n').flatMap((line) => {
+    const k = line.indexOf('\0');
+    if (k < 0) return [];
+    const file = line.slice(0, k);
+    if (!ok.has(file)) ok.set(file, checkRead(file, HOME).level !== BLOCK);
+    return ok.get(file) ? [`${file}:${line.slice(k + 1)}`] : [];
+  }).join('\n');
+}
 // Shrinks an image to at most 1568 px on its long side (Claude's own cap), never enlarging small ones. Returns [w, h].
 export async function fitImage(file) {
   const size = async () => parseSipsSize((await run('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file])).stdout);
@@ -281,8 +313,10 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
       return c;
     };
   }
+  // A last argument { signal } lets Stop end the helper (and what it started) mid-run.
   async function hands(...args) {
     if (!HANDS) throw new Error('This needs the Jarvis app.');
+    const { signal } = args.at(-1) && typeof args.at(-1) === 'object' ? args.pop() : {};
     // Acting in an app may take the real cursor: meanwhile clicks go through the overlay, even where the Sidekick or
     // its bubble sits on the spot being clicked.
     const acting = args[0] === 'act';
@@ -296,7 +330,8 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
       else if (ev.ev === 'step' && Array.isArray(ev.bounds) && ev.bounds.length === 4 && ev.bounds.every(Number.isFinite)) ui({ kind: 'hands', step: { bounds: ev.bounds, ...(ev.do === 'hover' ? { hover: true } : {}) } });
     } : undefined;
     let r;
-    try { r = await runHands(args, { timeout: 120_000, onLine }); } finally { if (acting) ui({ kind: 'hands', on: false }); }
+    try { r = await runHands(args, { timeout: 120_000, onLine, signal }); } finally { if (acting) ui({ kind: 'hands', on: false }); }
+    if (r.err?.code === 'ABORT_ERR') throw new Error('Stopped.');
     let res;
     try { res = JSON.parse(r.stdout.trim().split('\n').pop() || '{}'); } catch { throw new Error(`hands helper failed: ${r.stderr.trim().slice(0, 200) || 'no output'}`); }
     if (res.ok === false && !res.cancelled) {
@@ -324,8 +359,10 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
   }
   // A yes/no in an input bubble. Stop (or the turn ending) counts as no.
   // Only the yes/no is skipped (skipAllow: the user turned "Skip Allow prompts" on). BLOCK verdicts never reach here.
-  async function confirm(question, ctx) {
-    if (skipAllow()) return true;
+  // always: clicks that could delete, pay or send (and ones whose effect is unknown) ask even with Skip Allow on, as
+  // the README promises and as MCP's destructive calls do.
+  async function confirm(question, ctx, always = false) {
+    if (!always && skipAllow()) return true;
     const answer = await ask({ placeholder: question, choices: ['Allow', "Don't allow"] }, ctx?.signal);
     return isYes(answer);
   }
@@ -616,7 +653,8 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
         const src = m.at.src, app = t === 'front' || t === 'screen' ? {} : { app: t };
         const steps = src.text != null ? [{ do: 'fill', field: src.text, text: m.text }]
           : src.id != null ? [{ do: 'click', id: m.at.live }, { do: 'type', text: m.text }]
-            : [{ do: 'click_at', x: m.at.rect[0] + m.at.rect[2] / 2, y: m.at.rect[1] + m.at.rect[3] / 2, global: true }, { do: 'type', text: m.text }];
+            // confirmed: this click only puts the cursor in the field the drawing points at (the helper asks for it).
+            : [{ do: 'click_at', x: m.at.rect[0] + m.at.rect[2] / 2, y: m.at.rect[1] + m.at.rect[3] / 2, global: true, confirmed: true }, { do: 'type', text: m.text }];
         await hands('act', JSON.stringify({ steps, ...app }));
         if (lastShot) lastShot.used = true;
       }
@@ -832,8 +870,27 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
           if (allowedClicks.turn !== turn) allowedClicks = { turn, keys: new Set() };
           const appName = sameApp && lastRead.app ? lastRead.app : asked;
           const inThisPlan = new Set(); // one plan acts in one window, so its own steps share an Allow even when the app isn't known yet
-          for (const s of mapped) {
+          for (const [i, s] of mapped.entries()) {
             const label = s.do === 'click_text' ? s.text : s.do === 'click' ? s.label : s.do === 'choose' ? s.option : null;
+            // Return (or Enter, or Space) presses whatever is focused, and a click at pixels hits whatever is there:
+            // ask first unless it plainly just submits a search box filled in this plan.
+            const activates = s.do === 'key' && ACTIVATE_KEY.test(String(s.key ?? '').trim());
+            if (activates || s.do === 'click_at') {
+              const prev = mapped[i - 1];
+              const field = prev && ['fill', 'type'].includes(prev.do) ? String(prev.field ?? prev.label ?? '') : '';
+              if (activates && SEARCH_FIELD.test(field) && !isRiskyClick(field)) { s.confirmed = true; delete s.label; continue; }
+              const what = activates ? `Press ${s.key}${field ? ` in "${field}"` : ''}` : `Click at ${Math.round(s.x)},${Math.round(s.y)}`;
+              const kind = activates ? 'key' : 'click_at';
+              if (!inThisPlan.has(kind)) {
+                if (!(await confirm(`${what}${appName === 'front' ? '' : ` in ${appName}`}? I can't tell what it will do; it could send, pay or delete.`, ctx, true))) {
+                  throw new Error(`${userName} said no, so I didn't ${activates ? `press ${s.key}` : 'click there'} (nothing after it ran either).`);
+                }
+                inThisPlan.add(kind);
+              }
+              s.confirmed = true;
+              delete s.label;
+              continue;
+            }
             if (label && isRiskyClick(label)) {
               const kind = riskyKind(label);
               // "front" or "browser" could be a different app by the next call, so those aren't remembered past this plan.
@@ -841,7 +898,7 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
               if (!inThisPlan.has(kind) && !(key && allowedClicks.keys.has(key))) {
                 const where = appName === 'front' ? '' : ` in ${appName}`;
                 const covers = key ? ` Allow covers every "${kind}" click there for the rest of this request.` : '';
-                if (!(await confirm(`Click "${label}"${where}? It could delete, pay, send or sign out.${covers}`, ctx))) {
+                if (!(await confirm(`Click "${label}"${where}? It could delete, pay, send or sign out.${covers}`, ctx, true))) {
                   throw new Error(`${userName} said no, so I didn't click "${label}" (nothing after it ran either).`);
                 }
                 inThisPlan.add(kind);
@@ -852,7 +909,9 @@ export function createTools({ allowActions, ui, ask, openUrl, onCommitments, foc
             delete s.label;
           }
           const plan = { steps: mapped, ...(t === 'front' ? {} : t.startsWith('window:') ? { window: +t.slice(7) } : { app: t }) };
-          const act = () => hands('act', JSON.stringify(plan));
+          // Stopped while a question was open: the yes came too late, nothing runs. Stop during the run ends the helper.
+          if (ctx?.signal?.aborted) throw new Error('Stopped: nothing was done in the app.');
+          const act = () => hands('act', JSON.stringify(plan), { signal: ctx?.signal });
           let res;
           try {
             try { res = await act(); }
@@ -929,9 +988,11 @@ A drawing stays until the user clears it or the window changes; your next drawin
       execute: async ({ pattern, dir }) => {
         const d = allowed(checkRead(at(dir), HOME, { recursive: true }));
         // -e and -- keep a pattern like "--pre=cmd" from being read as an option (rg --pre runs programs).
-        let r = await run('rg', ['-n', '--max-count', '5', '--max-columns', '200', '-e', pattern, '--', d]);
-        if (r.err?.code === 'ENOENT') r = await run('grep', ['-rnI', '-m', '5', '-E', '-e', pattern, '--', d]);
-        return clip(r.stdout || 'No matches.', 12_000);
+        // Key and password files under the folder are skipped, and every file in the results passes the read rules.
+        const skip = (pre) => [...SEARCH_SKIP_FILES.map((g) => `${pre[0]}${g}`), ...SEARCH_SKIP_DIRS.map((g) => `${pre[1]}${g}`)];
+        let r = await run('rg', ['-n', '--null', '--max-count', '5', '--max-columns', '200', ...skip(['--iglob=!', '--iglob=!']), '-e', pattern, '--', d]);
+        if (r.err?.code === 'ENOENT') r = await run('grep', ['-rnIZ', '-m', '5', '-E', ...skip(['--exclude=', '--exclude-dir=']), '-e', pattern, '--', d]);
+        return clip(filterSearchOutput(r.stdout) || 'No matches.', 12_000);
       },
     },
     {
@@ -959,8 +1020,10 @@ A drawing stays until the user clears it or the window changes; your next drawin
         if (v.level === ASK && !(await confirm(`Run \`${command.length > 70 ? command.slice(0, 67) + '…' : command}\`?${v.reason ? ' ' + v.reason : ''}`, ctx))) {
           throw new Error(`${userName} said no, so the command didn't run.`);
         }
+        if (ctx?.signal?.aborted) throw new Error('Stopped: the command didn\'t run.');
         const [sh, shArgs, shOpts] = shellFor(command);
-        const r = await run(sh, shArgs, { ...shOpts, cwd: workdir, env: { ...process.env, ...GIT_SAFE } });
+        const r = await run(sh, shArgs, { ...shOpts, cwd: workdir, env: { ...process.env, ...GIT_SAFE }, signal: ctx?.signal });
+        if (r.err?.code === 'ABORT_ERR') throw new Error('Stopped: the command was ended.');
         const out = clip((r.stdout + (r.stderr ? `\n[stderr]\n${r.stderr}` : '')).trim() || '(no output)', 12_000);
         if (r.err && r.err.code !== 0) throw new Error(`Exit ${r.err.code ?? r.err.signal}\n${out}`);
         return out;
@@ -980,8 +1043,11 @@ A drawing stays until the user clears it or the window changes; your next drawin
         // A bare web address ("example.com", "www.bbc.co.uk/news") is a link, not an app name: it used to fail as
         // "Unable to find application named example.com" and cost a retry. App bundles ("Notes.app") stay apps.
         if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i.test(t) && !/\.app$/i.test(t)) t = `https://${t}`;
-        const isFile = /^[~/.]/.test(t) && await fs.stat(expand(t)).then((s) => s.isFile() && (s.mode & 0o111) !== 0, () => false);
-        allowed(checkOpen(t, HOME, { executable: isFile }));
+        const st = (/^[~/.]/.test(t) || /^[a-z]:\\/i.test(t)) ? await fs.stat(expand(t)).catch(() => null) : null;
+        const ov = checkOpen(t, HOME, { executable: !!st?.isFile() && (st.mode & 0o111) !== 0, dir: !!st?.isDirectory(), file: !!st?.isFile() });
+        // Not a document (a shortcut, installer, script…): shown in its folder, never launched.
+        if (ov.reveal && st) { revealFile(expand(t)); return `${t} isn't a document I open, so I showed it in its folder instead. Tell ${userName} to open it themselves if they trust it.`; }
+        allowed(ov);
         agentChangesScreen();
         // mailto: has no //, but it's a link too (it used to be taken for an app name and fail).
         const isUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(t) || /^mailto:/i.test(t), isPath = /^[~/.]/.test(t) || /^[a-z]:\\/i.test(t);

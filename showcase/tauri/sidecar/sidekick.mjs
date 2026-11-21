@@ -7,7 +7,7 @@
 import { CONFIG_PATH, DATA_DIR, ROAMIES_DIR } from './datadir.mjs';
 import { Agent } from '@kenkaiiii/gg-agent';
 import { ClaudeCodeAgent, claudeCodeInstaller, closeSpare } from './claudecode.mjs';
-import { SAFE, checkDrawAction, checkLink, checkMcpCall, checkOpen, checkRead, checkWrite, isYes, redactArgs } from './safety.mjs';
+import { SAFE, checkDrawAction, checkLink, checkMcpCall, checkOpen, checkRead, checkWrite, isYes, permissionMessageOk, redactArgs } from './safety.mjs';
 import { agentsRoot, createAgents, holdAfterLaunch, newsDesk, wantsAgent } from './agents.mjs';
 import { agentEvents, stallWatch } from './agentstream.mjs';
 import { CATALOG_PROVIDERS, createCatalogs } from './catalogs.mjs';
@@ -1338,7 +1338,8 @@ const OS_LINE = `${MAC ? `macOS ${macVersion}` : LINUX ? distro || 'Linux' : `${
 async function copyProblem(from) {
   const ok = !!lastProblem && await copyText(detailsText(lastProblem, { version: VERSION, os: OS_LINE }), shellCall).catch(() => false);
   logLine('problem_copied', { code: lastProblem?.code ?? null, ok });
-  send({ type: from === 'panel' ? 'panel' : 'onboard', msg: { kind: 'copied', which: 'problem', ok } });
+  // from: the window that asked, as the shell stamps it ('home' is the panel's page in the home window).
+  send({ type: from === 'panel' || from === 'home' ? 'panel' : 'onboard', msg: { kind: 'copied', which: 'problem', ok } });
 }
 
 async function pruneLogs() {
@@ -2886,6 +2887,8 @@ async function onGuide(m) {
 createInterface({ input: process.stdin }).on('line', (line) => {
   let m;
   try { m = JSON.parse(line); } catch { return; }
+  // Permission changes from a window that isn't a settings page, or in the wrong shape, are dropped (safety.mjs).
+  if (!permissionMessageOk(m)) { logLine('message_refused', { type: String(m?.type ?? '').slice(0, 40), from: String(m?.from ?? '').slice(0, 40) }); return; }
   if (m.type === 'menu') onMenu(m.id, m.via).catch((e) => console.error('menu', e));
   else if (m.type === 'panel_open') { panelOpen = true; panelAt = Date.now(); logLine('panel_open', {}); if (VOICE_OK) send({ type: 'voice_mics' }); Promise.all([refreshAuth(), signedIn.get('local') && syncLocal(), tts().local && speech.checkLocal()]).catch(() => {}).finally(() => { panel(); refreshCatalogs(); }); }
   else if (m.type === 'diagnostics') { shellInfo?.(m); shellInfo = null; }

@@ -332,7 +332,12 @@ fn to_sidekick_buddy(app: &AppHandle, msg: &Value) {
 }
 
 #[tauri::command]
-fn sidecar_send(app: AppHandle, msg: Value) {
+fn sidecar_send(app: AppHandle, window: WebviewWindow, mut msg: Value) {
+    // Stamp which window sent it (overwriting anything the page wrote): the sidecar takes permission changes only
+    // from the settings windows (panel, home, onboarding), never from the overlay that shows model text.
+    if let Some(o) = msg.as_object_mut() {
+        o.insert("from".into(), Value::String(window.label().to_string()));
+    }
     to_sidecar(&app, &msg);
 }
 

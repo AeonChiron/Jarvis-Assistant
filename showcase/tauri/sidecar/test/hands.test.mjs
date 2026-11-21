@@ -89,7 +89,7 @@ assert.equal(calls().find((c) => c[0] === 'capture').length, 4, 'no preview thum
 }
 
 // An app that isn't installed: one clear answer instead of "No matching window".
-await assert.rejects(tool('act_in_app').execute({ target: 'NoSuchAppRoamiesTest', steps: [{ do: 'key', key: 'return' }] }, ctx), /no app called "NoSuchAppRoamiesTest"/);
+await assert.rejects(tool('act_in_app').execute({ target: 'NoSuchAppRoamiesTest', steps: [{ do: 'key', key: 'tab' }] }, ctx), /no app called "NoSuchAppRoamiesTest"/);
 await assert.rejects(tool('open').execute({ target: 'NoSuchAppRoamiesTest' }, ctx), /no app called "NoSuchAppRoamiesTest"/);
 
 // A bare web address opens as a link (in the app asked for), not as an app called "example.com".
@@ -250,10 +250,10 @@ assert.match(opened, /no app called "NoSuchAppRoamiesTest"/, 'treated as a link 
   fs.writeFileSync(log, '');
   const seen = [];
   const t = createTools({ allowActions: () => true, ui: (m) => { if (m.kind === 'hands') seen.push({ on: m.on, acted: fs.readFileSync(log, 'utf8').includes('["act"') }); }, ask: async () => false, openUrl: noop, onCommitments: noop, showList: noop, fmtWhen: String, commitmentsText: () => '', userName: 'Test' }).tools;
-  await t.find((x) => x.name === 'act_in_app').execute({ target: 'TextEdit', steps: [{ do: 'key', key: 'return' }] }, ctx);
+  await t.find((x) => x.name === 'act_in_app').execute({ target: 'TextEdit', steps: [{ do: 'key', key: 'tab' }] }, ctx);
   assert.deepEqual(seen, [{ on: true, acted: false }, { on: false, acted: true }], 'click-through on before acting, off after');
   seen.length = 0;
-  await t.find((x) => x.name === 'act_in_app').execute({ target: 'NoSuchAppRoamiesTest', steps: [{ do: 'key', key: 'return' }] }, ctx).catch(() => {});
+  await t.find((x) => x.name === 'act_in_app').execute({ target: 'NoSuchAppRoamiesTest', steps: [{ do: 'key', key: 'tab' }] }, ctx).catch(() => {});
   assert.equal(seen.at(-1)?.on, false, 'click-through released after a failed act');
 }
 

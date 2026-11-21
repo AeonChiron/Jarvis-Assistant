@@ -88,9 +88,9 @@
     const s = window.__panelState;
     $('.hud-status').textContent = s?.status?.text ?? 'Starting…';
     const model = s?.model?.label ?? s?.model?.name ?? s?.modelName ?? '';
-    $('.hud-read').innerHTML = `System <em>${s ? 'online' : 'starting'}</em>`
-      + (model ? `<br>Model <em>${String(model).slice(0, 28)}</em>` : '')
-      + `<br>Version <em>${s?.version ?? '…'}</em>`;
+    // Built from text nodes: a model name comes from a connected model server and must never run as HTML.
+    const rows = [['System', s ? 'online' : 'starting'], ...(model ? [['Model', String(model).slice(0, 28)]] : []), ['Version', String(s?.version ?? '…')]];
+    $('.hud-read').replaceChildren(...rows.flatMap(([k, v], i) => { const em = document.createElement('em'); em.textContent = v; return [...(i ? [document.createElement('br')] : []), `${k} `, em]; }));
   };
   setInterval(read, 1000);
   read();
