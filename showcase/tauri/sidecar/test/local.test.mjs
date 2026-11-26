@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { LOCAL_API_KEY_PLACEHOLDER, getAuthStorageKeys, getModel, getModelsForProvider } from '@kenkaiiii/gg-core';
 import {
-  LMSTUDIO, MAX_SERVERS, MIN_CONTEXT, OLLAMA, OLLAMA_KEY, connectLocal, contextNote, downNote, forgetLocal, localModels, newServer, noModelsNote,
+  COLIBRI, LMSTUDIO, MAX_SERVERS, MIN_CONTEXT, OLLAMA, OLLAMA_KEY, colibriSees, connectLocal, contextNote, downNote, forgetLocal, localModels, newServer, noModelsNote,
   serverFor, serverList, serverUrl, syncLocal,
 } from '../local.mjs';
 
@@ -62,11 +62,13 @@ const mine = [
   { id: 'ollama', label: 'Fake', baseUrl: 'http://x/v1' }, { id: 'Bad/Id', label: 'x', baseUrl: 'http://x/v1' }, null, 'junk',
 ];
 const servers = serverList(mine);
-assert.deepEqual(servers.map((s) => s.id), ['ollama', 'lmstudio', 'gpu-box', 'llama']);
+assert.deepEqual(servers.map((s) => s.id), ['ollama', 'lmstudio', 'colibri', 'gpu-box', 'llama']);
 assert.equal(LMSTUDIO.baseUrl, 'http://127.0.0.1:1234/v1');
-assert.deepEqual(servers[2], { id: 'gpu-box', label: 'GPU box', baseUrl: 'http://10.0.0.5:8000/v1', kind: 'custom', custom: true, supportsImages: true });
-assert.equal('supportsImages' in servers[3], false, "images off lets the server say (llama.cpp reports it), it doesn't force no");
-assert.deepEqual(serverList(undefined).map((s) => s.id), ['ollama', 'lmstudio']);
+assert.equal(COLIBRI.baseUrl, 'http://127.0.0.1:8000/v1', "colibri's coli serve default");
+assert.deepEqual(servers[3], { id: 'gpu-box', label: 'GPU box', baseUrl: 'http://10.0.0.5:8000/v1', kind: 'custom', custom: true, supportsImages: true });
+assert.equal('supportsImages' in servers[4], false, "images off lets the server say (llama.cpp reports it), it doesn't force no");
+assert.deepEqual(serverList(undefined).map((s) => s.id), ['ollama', 'lmstudio', 'colibri']);
+assert.equal(newServer([], { label: 'colibri', baseUrl: 'http://10.0.0.9:8000' }).server.id, 'colibri-2', "colibri's id isn't reused");
 assert.equal(serverFor(servers, 'local/gpu-box/Qwen/Qwen3-VL-32B').label, 'GPU box');
 assert.equal(serverFor(servers, 'claude-opus-5-5'), undefined);
 
@@ -99,7 +101,7 @@ const auth2 = {
   hasCredentials: async (k) => creds.has(k),
   setLocalEndpoint: async (...a) => stored.push(a),
 };
-const gpu = servers[2];
+const gpu = servers[3];
 const fake = (models) => async (e) => { seen.push([e.id, e.apiKey]); return { endpoint: e, reachable: true, models: models(e) }; };
 const vl = (id, o) => model(id, o);
 await connectLocal(auth2, gpu, { save: true, probe: fake(() => [vl('Qwen/Qwen3-VL-32B', { endpointId: 'gpu-box' })]) });
@@ -126,6 +128,30 @@ assert.equal(dead.get('ollama').ok, false);
 assert.deepEqual(getModelsForProvider('local').map((m) => m.id), ['local/ollama/qwen3-vl:8b'], 'a closed server keeps its models, so asking says to open it');
 forgetLocal('ollama');
 assert.deepEqual(getModelsForProvider('local'), []);
+
+// colibri: its /v1/models (as openai_server.py writes it) says whether the served model chats and sees images.
+const entry = (caps, inputs) => ({ object: 'list', data: [{ id: 'qwen38', object: 'model', owned_by: 'colibri', capabilities: caps, input_modalities: inputs }] });
+assert.equal(colibriSees(entry(['chat', 'systemone'], ['text', 'image'])), true);
+assert.equal(colibriSees(entry(['chat', 'systemone'], ['text'])), false, 'a text-only model');
+assert.equal(colibriSees(entry(['image_generation'], ['text', 'image'])), false, 'an image generator does not chat');
+assert.equal(colibriSees(null), false);
+assert.equal(colibriSees({ data: [{ id: 'x' }] }), false);
+const told = [];
+const look = (list) => async (s, key) => { told.push([s.id, key]); return list; };
+const sees = async (e) => ({ endpoint: e, reachable: true, models: [model('qwen38', { endpointId: 'colibri', supportsImages: false })].map((m) => (e.supportsImages ? { ...m, supportsImages: true } : m)) });
+const vision = await connectLocal(auth, COLIBRI, { probe: sees, list: look(entry(['chat'], ['text', 'image'])) });
+assert.deepEqual(vision.models.map((m) => m.id), ['local/colibri/qwen38'], 'a vision model shows in the Model menu');
+const text = await connectLocal(auth, COLIBRI, { probe: sees, list: look(entry(['chat'], ['text'])) });
+assert.deepEqual(text.models, [], "a text-only model doesn't");
+const off = await connectLocal(auth, COLIBRI, { probe: async (e) => ({ endpoint: e, reachable: false, reason: 'Not running', models: [] }), list: async () => { throw new Error('refused'); } });
+assert.equal(off.ok, false, 'colibri not running is just "not running"');
+let asked = 0;
+await connectLocal(auth, OLLAMA, { probe: async () => probe, list: async () => { asked++; return null; } });
+assert.equal(asked, 0, 'only colibri is asked for its model list');
+forgetLocal('colibri'); forgetLocal('ollama');
+assert.match(noModelsNote(COLIBRI, 1), /can't see images.*coli serve/);
+assert.ok(noModelsNote(COLIBRI, 1, true).length <= 50);
+assert.equal(downNote(COLIBRI, 'Not running'), "colibri isn't running.");
 
 // What each server's row says.
 assert.match(noModelsNote(OLLAMA, 3), /ollama pull qwen3-vl:8b/);

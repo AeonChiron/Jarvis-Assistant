@@ -9,7 +9,17 @@ import {
 export const OLLAMA = DEFAULT_LOCAL_ENDPOINTS.find((e) => e.id === 'ollama');
 export const OLLAMA_KEY = localAuthStorageKey(OLLAMA.id);
 export const LMSTUDIO = { id: 'lmstudio', label: 'LM Studio', baseUrl: 'http://127.0.0.1:1234/v1', kind: 'lmstudio' };
-export const BUILT_IN = [OLLAMA, LMSTUDIO];
+// colibri (github.com/JustVugg/colibri): `coli serve` is OpenAI-compatible at this address by default.
+export const COLIBRI = { id: 'colibri', label: 'colibri', baseUrl: 'http://127.0.0.1:8000/v1', kind: 'custom' };
+export const BUILT_IN = [OLLAMA, LMSTUDIO, COLIBRI];
+
+/** Whether colibri's served model chats and sees images: its /v1/models says so (`capabilities`, `input_modalities`). */
+export const colibriSees = (list) => (list?.data ?? []).some((m) => Array.isArray(m?.capabilities) && m.capabilities.includes('chat')
+  && Array.isArray(m?.input_modalities) && m.input_modalities.includes('image'));
+const readList = async (server, key) => {
+  const r = await fetch(`${server.baseUrl}/models`, { headers: key ? { authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(1500) });
+  return r.ok ? r.json() : null;
+};
 export const MAX_SERVERS = 8;
 // Requests are fitted to half the window, and the system prompt and tools alone are about 12.6k tokens.
 export const MIN_CONTEXT = 32_768;
@@ -76,9 +86,11 @@ export const forgetLocal = (id) => clearRuntimeModels(onServer(id));
  * its `local:<id>` credential, with `apiKey` (only when it answered). → { ok, reason, models, all } where `all`
  * counts every chat model, usable or not.
  */
-export async function connectLocal(auth, server, { save = false, apiKey, windows, probe = probeEndpoint } = {}) {
+export async function connectLocal(auth, server, { save = false, apiKey, windows, probe = probeEndpoint, list = readList } = {}) {
   const key = apiKey || await storedKey(auth, server.id);
-  const p = await probe(key ? { ...server, apiKey: key } : server, { timeoutMs: 1500 });
+  // colibri says per model whether it sees images, which the generic probe doesn't read.
+  const seen = server.id === COLIBRI.id ? { ...server, supportsImages: colibriSees(await list(server, key).catch(() => null)) } : server;
+  const p = await probe(key ? { ...seen, apiKey: key } : seen, { timeoutMs: 1500 });
   if (!p.reachable) return { ok: false, reason: p.reason ?? 'not running', models: [], all: 0 };
   const models = localModels([p], windows);
   clearRuntimeModels(onServer(server.id));
@@ -88,11 +100,11 @@ export async function connectLocal(auth, server, { save = false, apiKey, windows
 }
 
 /** Refreshes every connected server at once; the models of servers not connected leave the menu. → Map id → result. */
-export async function syncLocal(auth, servers, { windows, probe } = {}) {
+export async function syncLocal(auth, servers, { windows, probe, list } = {}) {
   const on = [];
   for (const s of servers) if (await auth.hasCredentials(localAuthStorageKey(s.id)).catch(() => false)) on.push(s);
   clearRuntimeModels((m) => m.provider === 'local' && !on.some((s) => onServer(s.id)(m)));
-  const results = await Promise.all(on.map((s) => connectLocal(auth, s, { windows, probe }).catch(() => ({ ok: false, models: [], all: 0 }))));
+  const results = await Promise.all(on.map((s) => connectLocal(auth, s, { windows, probe, list }).catch(() => ({ ok: false, models: [], all: 0 }))));
   return new Map(on.map((s, i) => [s.id, results[i]]));
 }
 
@@ -100,8 +112,10 @@ export async function syncLocal(auth, servers, { windows, probe } = {}) {
 export function noModelsNote(server, all, short = false) {
   if (short) return server.id === 'ollama' ? 'None can see images. Try: ollama pull qwen3-vl:8b'
     : server.id === 'lmstudio' ? 'None can see images. Get Qwen3-VL 8B in LM Studio.'
+    : server.id === 'colibri' ? 'Its model can\'t see images. Serve one that can.'
     : all ? 'None marked as seeing images. Re-add to change.' : 'No models served.';
   if (server.id === 'ollama') return "None of Ollama's models can see images. Get one with: ollama pull qwen3-vl:8b";
+  if (server.id === 'colibri') return "colibri's model can't see images, and I read your screen. Serve one that can (Qwen3.8 or DeepSeek V4.1 Flash): coli serve.";
   if (server.id === 'lmstudio') return all ? 'None of the models in LM Studio can see images. Download a vision model in LM Studio (Qwen3-VL 8B is a good start).' : 'LM Studio has no models yet. Download a vision model in LM Studio (Qwen3-VL 8B is a good start).';
   return all ? `${server.label} didn't say its models can see images. If they can, remove it and add it again with "Its models can see images" on.` : `${server.label} isn't serving any models.`;
 }

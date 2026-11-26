@@ -1016,6 +1016,9 @@
     ['Companion', [
       ['Animama by Raymond Van', 'Embedded Andrew and Annie character engine (AGPL-3.0); VRoid models by pixiv, edited by Raymond Van', 'https://github.com/raymond-van/animama'],
     ]],
+    ['Models on this PC', [
+      ['colibri by JustVugg', 'Runs large open models on this PC; connect it under Model (Apache-2.0)', 'https://github.com/JustVugg/colibri'],
+    ]],
     ['Speech', [
       ['Parakeet TDT by NVIDIA', 'The speech model that hears you (CC BY 4.0)', 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3'],
       ['Parakeet ONNX by istupakov', 'The model in a form this PC can run (CC BY 4.0)', 'https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx'],

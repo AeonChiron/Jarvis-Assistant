@@ -468,7 +468,7 @@ async function measureLocal(id) {
   const note = contextNote(ctx, OLLAMA, config.lite);
   if (note) { say(note, 'concerned'); panelNote(note, true); }
 }
-const HOW_TO_GET = { ollama: ' Open it (get it at ollama.com), then try again.', lmstudio: ' Open it (get it at lmstudio.ai), turn on its server (Developer → Start Server), then try again.' };
+const HOW_TO_GET = { ollama: ' Open it (get it at ollama.com), then try again.', lmstudio: ' Open it (get it at lmstudio.ai), turn on its server (Developer → Start Server), then try again.', colibri: ' Start its server (coli serve, from github.com/JustVugg/colibri), then try again.' };
 const connectedNote = (s, r) => (r.models.length ? `${s.label} is connected: ${r.models.length} model${r.models.length === 1 ? '' : 's'} that can see your screen.`
   : `${s.label} is connected, but I can't use any of its models yet. ${noModelsNote(s, r.all)}`);
 async function connectServer(id) {
