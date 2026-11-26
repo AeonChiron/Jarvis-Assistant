@@ -51,8 +51,12 @@ export function mount(canvas: HTMLCanvasElement) {
     const distance = Math.max(span, wide) / (2 * Math.tan(THREE.MathUtils.degToRad(15)));
     camera.position.set(target.x, target.y, target.z + distance); camera.lookAt(target); camera.updateProjectionMatrix();
   };
+  // The desktop buddy draws the head a little bigger than life, so the small character stays readable.
+  let head = 1;
+  const sizeHead = () => avatar?.vrm?.humanoid?.getRawBoneNode('head')?.scale.setScalar(head);
   const api = {
     canvas,
+    headScale(value: number) { head = Number.isFinite(value) && value > 0 ? value : 1; sizeHead(); },
     ready: false,
     error: '',
     async load(id: string) {
@@ -64,7 +68,7 @@ export function mount(canvas: HTMLCanvasElement) {
       try {
         await next.load({ filePath: asset(`avatars/${id === 'annie' ? 'Annie' : 'Andrew'}.vrm`), materialMode: 'simple' });
         if (disposed || serial !== generation) { next.dispose(); return; }
-        scene.add(next.scene!); next.prepareFirstFrame();
+        scene.add(next.scene!); next.prepareFirstFrame(); sizeHead();
         bounds.setFromObject(next.scene!); fit(); api.ready = true;
       } catch (e) { if (serial === generation && !disposed) { api.error = String(e); console.error('Companion could not load', e); } }
     },
@@ -90,6 +94,7 @@ export function mount(canvas: HTMLCanvasElement) {
       if (width !== w || height !== h) { width = Math.max(1,w); height = Math.max(1,h); renderer.setSize(width,height,false); camera.aspect=width/height; fit(); }
       if (api.ready) {
         avatar!.update(Math.min(.05, Math.max(0,dt)));
+        if (head !== 1) sizeHead();
         // Jarvis owns audio playback. RMS from its actual playing PCM drives Animama's mouth.
         avatar!.vrm?.expressionManager?.setValue('aa', level);
         avatar!.vrm?.expressionManager?.update();
