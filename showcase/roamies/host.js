@@ -625,7 +625,7 @@
   const ready = () => {
     const a = getAgent();
     if (!a) return setTimeout(ready, 150);
-    a.setAuto(true);
+    a.setAuto(false); // Stays on screen until closed (no vanishing when idle).
     a.hide({ instant: true });
     send({ type: 'ui_ready' });
   };
