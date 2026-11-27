@@ -381,3 +381,4 @@ html, body { height: 100%; background: transparent; }
 
 /* Arabic and Hebrew in a list (dir=auto on the text): the Arabic font first, for its own word spacing. */
 .item .text:dir(rtl) { font-family: "Roamies Arabic RTL", var(--mono); }
+#head-roamies { flex: none; margin-inline-start: 2px; }

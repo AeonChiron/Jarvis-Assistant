@@ -41,6 +41,7 @@ import { describeMarks } from './marks.mjs';
 import { faviconFor } from './draw.mjs';
 import { QUESTIONS, openNote, answerTurn, wantsSkip, endsChat, splitTurn, plain, stripNote, tourBeats, goalFrom, showcaseBeats } from './intro.mjs';
 import { SpeechText, CueFilter, VOICE_CUES, LISTEN_SECS, listenWait, listensAfter } from './speech.mjs';
+import { checkUpstream, UPSTREAM_PAGE } from './upstream.mjs';
 import { createSpeaker, voiceProblemText, voiceWhy } from './speaker.mjs';
 import { LITE_BUDGET, LITE_TOOLS, LITE_TURNS, liteSystem } from './lite.mjs';
 import { handoffNote } from './quote.mjs';
@@ -1983,6 +1984,14 @@ function setLogin(on) { login.asked = true; send({ type: 'login_item', on }); }
 // The app checks the signed feed and installs (Rust: update()); this side decides what to say and offers the menu item.
 // page: this copy can't replace itself (Linux, installed from a .deb or .rpm), so "install" opens the download page.
 const update = { available: null, told: null, manual: false, installing: false, checking: false, result: null, page: false, done: null };
+// The real Roamies app's news (the panel's second update button): checked only when pressed.
+const upstream = { checking: false, result: null };
+async function checkRoamies() {
+  if (upstream.checking) return;
+  upstream.checking = true; panel();
+  upstream.result = { ...await checkUpstream(), at: Date.now() };
+  upstream.checking = false; panel();
+}
 function checkUpdates(manual = false) {
   update.manual = manual;
   if (manual) { update.checking = true; update.result = null; panel(); }
@@ -2324,6 +2333,7 @@ function panelState() {
     sound: !!config.sound, volume: volumeNow(), actions: !!config.allowActions, skipAllow: !!config.skipAllow, lite: !!config.lite, hybrid: { on: !!config.hybrid, jobs: JOB_KINDS.map((j) => ({ ...j, value: parseSpec(config.heavy?.[j.kind])?.spec ?? '' })), active: routed?.spec ?? '' }, subagents: { on: !!config.subagents, delegate: DELEGATE_MODES.includes(config.delegate) ? config.delegate : 'ask', crew: SUBAGENTS.map((s) => { const c = activeCrew(config.crew, runnableSpec, hybridActive() ? config.heavy : null).find((x) => x.id === s.id); return { id: s.id, label: s.label, hint: s.hint, value: parseSpec(config.crew?.[s.id])?.spec ?? '', via: c?.via ?? '', uses: c?.spec.spec ?? '' }; }) }, efforts: Object.fromEntries(SLOTS.map((k) => [k, config.efforts?.[k] ?? ''])), fallbacks: { on: !!config.backups, slots: [0, 1].map((i) => parseSpec(config.fallbacks?.[i])?.spec ?? ''), limited: limits.list().filter((l) => !l.key.includes(':') && (isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? l.key, until: l.until })), unavailable: limits.list().filter((l) => !(isQuota(l.kind) || l.kind === 'busy')).map((l) => ({ label: PROVIDER_LABELS[l.key] ?? modelName(l.key.split(':').slice(1).join(':')) ?? l.key, why: becauseOf(l.kind), until: l.until })), using: routed && /^backup/.test(routed.slot ?? '') ? routed.spec : '' }, notch: notchMode(), notchReal: notchScreen, brief: { on: !!config.morningBrief, todoist: !!config.briefTodoist, canTodoist: HANDS_OK }, focus: HANDS_OK ? { until: focusBlock?.until ?? null, task: focusBlock?.task ?? '', list: distractionList(), custom: !!config.distractions } : null, sync: { dir: config.syncDir || '', at: syncInfo.at, error: syncInfo.error, paused: !!syncInfo.paused }, gameMode: HANDS_OK ? config.gameSidebar !== false : null,
     login: login.supported ? { on: login.on } : null,
     update: { available: update.available, installing: update.installing, checking: update.checking, result: update.result, page: update.page, done: update.done },
+    upstream: { checking: upstream.checking, result: upstream.result },
     intro: !!intro,
     // The latest error anyone saw, for Copy last error.
     problem: lastProblem ? { code: lastProblem.code, at: lastProblem.at } : null,
@@ -2650,6 +2660,8 @@ async function onMenu(id, via) {
     config.skipAllow = !config.skipAllow; saveConfig(); menu();
     say(config.skipAllow ? "I'll go ahead without asking Allow first. Turn it off any time on the General page." : "I'll ask before risky steps again.", config.skipAllow ? 'determined' : 'happy');
   } else if (id === 'update') checkUpdates(true);
+  else if (id === 'roamies_check') checkRoamies();
+  else if (id === 'roamies_open') openUrl(UPSTREAM_PAGE);
   else if (id === 'install_update') installUpdate();
   else if (id === 'login') setLogin(!login.on);
   else if (id === 'logs') fs.mkdir(LOG_DIR, { recursive: true, mode: 0o700 }).then(() => openUrl(LOG_DIR)).catch(() => {});

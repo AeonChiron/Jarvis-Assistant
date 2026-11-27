@@ -217,6 +217,7 @@
     now.title = now.textContent;
     $('ver').textContent = `v${state.version}`;
     updateButton();
+    roamiesButton();
     react();
     // The sidebar marks a page that needs you: no account to answer with.
     mark('model', s.state === 'off' ? 'not signed in' : null);
@@ -244,6 +245,21 @@
     if (fresh) freshTimer = setTimeout(() => state && updateButton(), FRESH - (Date.now() - u.result.at) + 50);
   }
   $('head-update').addEventListener('click', () => act(state?.update?.available ? 'install_update' : 'update'));
+  // The real Roamies app: Roamies updates, Checking…, then "Roamies: 3 new" (opens them) or "Roamies: nothing new".
+  function roamiesButton() {
+    const u = state.upstream ?? {}, r = u.result, b = $('head-roamies');
+    const [label, tip, off] = u.checking ? ['Checking…', '', true]
+      : r?.ok && r.count ? [`Roamies: ${r.count}${r.count >= 100 ? '+' : ''} new`, `Newest: ${r.latest}. Click to see them all.`, false]
+      : r?.ok ? ['Roamies: nothing new', 'Jarvis has every change from the real Roamies app.', false]
+      : r ? ['Roamies: check again', r.error ?? "Couldn't check.", false]
+      : ['Roamies updates', "See what the real Roamies app changed that Jarvis doesn't have yet", false];
+    b.textContent = label; b.disabled = off; b.title = tip;
+    b.className = `px btn mini ${r?.ok && r.count ? 'primary' : 'ghost'}`;
+  }
+  $('head-roamies').addEventListener('click', () => {
+    const r = state?.upstream?.result;
+    act(r?.ok && r.count ? 'roamies_open' : 'roamies_check');
+  });
   // Quit asks first: the first press turns it into Confirm for 4 s, the second quits.
   const quitB = $('head-quit');
   let quitTimer = 0;
@@ -1367,6 +1383,8 @@
       if (id.startsWith('size:')) { s.size = id.slice(5); setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (id.startsWith('tts:')) { s.tts = id.slice(4); s.studio = s.tts === 'voicestudio' ? STUDIO[q.get('studio')] ?? STUDIO.on : null; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (id.startsWith('studiovoice:') && s.studio) { s.studio.voice = id.slice(12) === 'default' ? null : id.slice(12); setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
+      // Roamies updates: Checking…, then the real repo's count, as from the sidecar.
+      if (id === 'roamies_check') { s.upstream = { checking: true }; window.__panel({ kind: 'state', state: s }); setTimeout(() => { s.upstream = { result: { ok: true, count: 28, latest: 'Update version to 0.1.52', at: Date.now() } }; window.__panel({ kind: 'state', state: s }); }, 600); }
       if (id === 'lite') { s.lite = !s.lite; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (id === 'hybrid') { s.hybrid.on = !s.hybrid.on; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
       if (id === 'backups') { s.fallbacks.on = !s.fallbacks.on; setTimeout(() => window.__panel({ kind: 'state', state: s }), 120); }
