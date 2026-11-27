@@ -115,7 +115,7 @@ export function noModelsNote(server, all, short = false) {
     : server.id === 'colibri' ? 'Its model can\'t see images. Serve one that can.'
     : all ? 'None marked as seeing images. Re-add to change.' : 'No models served.';
   if (server.id === 'ollama') return "None of Ollama's models can see images. Get one with: ollama pull qwen3-vl:8b";
-  if (server.id === 'colibri') return "colibri's model can't see images, and I read your screen. Serve one that can (Qwen3.8 or DeepSeek V4.1 Flash): coli serve.";
+  if (server.id === 'colibri') return "colibri's model can't see images, and I read your screen. Serve one that can, like Inkling-2-Mini (coli setup --model inkling2-mini --reconfigure), then coli serve.";
   if (server.id === 'lmstudio') return all ? 'None of the models in LM Studio can see images. Download a vision model in LM Studio (Qwen3-VL 8B is a good start).' : 'LM Studio has no models yet. Download a vision model in LM Studio (Qwen3-VL 8B is a good start).';
   return all ? `${server.label} didn't say its models can see images. If they can, remove it and add it again with "Its models can see images" on.` : `${server.label} isn't serving any models.`;
 }
