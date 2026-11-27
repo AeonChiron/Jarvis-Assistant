@@ -561,7 +561,7 @@
       return;
     }
     // Launch (and the relaunch after an update): the capsule says hi when it's on, else the Roamie waves by the cursor.
-    if (m.kind === 'greet') { if (notchOn()) N().hello(); else getAgent().act('wave'); return; }
+    if (m.kind === 'greet') { if (notchOn()) { N().hello(); getAgent().show(); } else getAgent().act('wave'); return; }
     if (m.kind === 'intro') { if (capR()) N().say(m.text); else getAgent().intro(m.x, m.text); return; }
     if (m.kind === 'esc') { onEsc(); return; }
     if (m.kind === 'summon') {

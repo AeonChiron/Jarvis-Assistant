@@ -208,8 +208,11 @@ struct Voice {
     chord: u8,
     chord_at: f64,
     listen_at: f64,
-    /// How long a hands-free take waits for words before giving up (auto-listen's setting; 8 s otherwise).
+    /// How long a hands-free take waits for words before giving up (auto-listen's setting; 8 s otherwise). Voice chat
+    /// (a tap, the talk key, or `wait: 0`) has no limit: it stays open until closed.
     nothing_wait: f64,
+    /// The take being finished was hands-free, so the words go out marked as voice chat.
+    hands_free_sent: bool,
     heard_at: f64,
     voice_at: f64,
     floor: NoiseFloor,
@@ -268,6 +271,7 @@ impl Voice {
             chord_at: 0.0,
             listen_at: 0.0,
             nothing_wait: 8.0,
+            hands_free_sent: false,
             heard_at: 0.0,
             voice_at: 0.0,
             floor: NoiseFloor::default(),
@@ -399,6 +403,7 @@ impl Voice {
                     self.blocked = true;
                 } else if released {
                     self.phase = Phase::HandsFree;
+                    self.nothing_wait = f64::INFINITY; // voice chat: open until closed
                     self.show_listening("handsfree", now);
                 } else if down && now - self.chord_at >= TAP_LIMIT {
                     self.phase = Phase::Holding;
@@ -432,7 +437,7 @@ impl Voice {
                 } else if self.best.is_empty() && !self.reading && now - self.listen_at > self.nothing_wait && now - self.voice_at > PAUSE_ENDS {
                     self.end("nothing heard", now);
                     self.cancel();
-                } else if now - self.listen_at > MAX_SESSION {
+                } else if now - self.listen_at > MAX_SESSION && (self.nothing_wait.is_finite() || !self.best.is_empty()) {
                     self.end("max length", now);
                     self.finish();
                 }
@@ -534,6 +539,7 @@ impl Voice {
             return;
         }
         let shown = self.phase != Phase::Armed;
+        self.hands_free_sent = self.phase == Phase::HandsFree;
         self.report_empty = shown;
         self.phase = Phase::Finishing;
         self.ink.capture(self.now());
@@ -629,6 +635,9 @@ impl Voice {
         if !text.is_empty() {
             // What was circled on screen while talking rides along with the words.
             let mut msg = json!({ "type": "final", "text": text });
+            if self.hands_free_sent {
+                msg["via"] = json!("handsfree");
+            }
             if let Some(a) = area {
                 msg["area"] = a;
                 log("sent what was said, with the circled area");
@@ -672,7 +681,10 @@ impl Voice {
         }
         let now = self.now();
         self.arm(now);
-        self.nothing_wait = wait.unwrap_or(8.0).clamp(3.0, 15.0);
+        self.nothing_wait = match wait {
+            Some(w) if w <= 0.0 => f64::INFINITY,
+            w => w.unwrap_or(8.0).clamp(3.0, 15.0),
+        };
         self.phase = Phase::HandsFree;
         self.blocked = true; // the snap shortcut's keys may still be held: don't read them as a tap
         self.show_listening("handsfree", now);
@@ -682,7 +694,7 @@ impl Voice {
     /// hands-free, the next one sends what was said (so does a pause).
     fn toggle(&mut self) {
         match self.phase {
-            Phase::Idle | Phase::Wake => self.listen_now(None),
+            Phase::Idle | Phase::Wake => self.listen_now(Some(0.0)),
             Phase::Armed | Phase::Holding | Phase::HandsFree => {
                 let now = self.now();
                 self.end("toggled", now);
@@ -1167,6 +1179,30 @@ mod tests {
         assert!(jobs.try_recv().is_err(), "silence isn't read (Parakeet makes words up from it)");
         assert_eq!(v.phase, Phase::Idle);
         let _ = std::fs::remove_file(wav);
+    }
+
+    #[test]
+    fn voice_chat_stays_open_until_closed() {
+        let (mut v, _jobs, wav) = voice();
+        v.toggle();
+        assert!(v.nothing_wait.is_infinite(), "the talk key opens voice chat");
+        v.listen_at -= MAX_SESSION + 1.0;
+        v.voice_at = v.listen_at;
+        v.tick();
+        assert_eq!(v.phase, Phase::HandsFree, "a minute of nothing said: still listening");
+        v.on_level(0.5);
+        v.on_text(v.take, "hello there".into(), false);
+        v.toggle();
+        assert!(v.hands_free_sent, "the words go out marked as voice chat");
+        // An app-opened take with a wait still gives up; wait 0 doesn't.
+        let (mut w, _jobs2, wav2) = voice();
+        w.handle(Ev::Cmd(json!({ "cmd": "listen", "wait": 8 })));
+        assert_eq!(w.nothing_wait, 8.0);
+        w.cancel();
+        w.handle(Ev::Cmd(json!({ "cmd": "listen", "wait": 0 })));
+        assert!(w.nothing_wait.is_infinite());
+        let _ = std::fs::remove_file(wav);
+        let _ = std::fs::remove_file(wav2);
     }
 
     fn wake_cmd(v: &mut Voice, cmd: &str, on: bool) {

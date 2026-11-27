@@ -44,6 +44,8 @@
     until = 0;
     const invoke = window.__TAURI__?.core?.invoke;
     if (R.buddyMode && invoke) { invoke('sidecar_send', { msg: { type: 'menu', id: 'quit' } }).catch(console.error); return; }
+    // Closing him closes voice chat too: the mic stops listening.
+    if (invoke) invoke('sidecar_send', { msg: { type: 'listen_cancel' } }).catch(console.error);
     body()?.agent.hide();
   });
 })();

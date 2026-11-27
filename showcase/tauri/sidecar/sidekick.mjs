@@ -1435,6 +1435,10 @@ function holdWake(on) {
 }
 const listenSecs = () => listenWait(config.listenSecs);
 const autoListenOn = () => VOICE_OK && !!config.voice && !!config.autoListen && voiceReady() && !intro;
+// Voice chat: a hands-free take (a tap of the talk key) keeps the mic coming back after every reply, with no time
+// limit, until it's closed (Esc, or a tap with nothing said).
+let voiceChat = false;
+const voiceChatOn = () => voiceChat && VOICE_OK && !!config.voice && voiceReady() && !intro;
 // The agents' news waits for a quiet moment (desk.tick): nothing running or queued, not listening, the last reply
 // typed out and said (reply_said, or 90 s), no field open, and none of that changing for 1.5 s.
 let voiceBusy = false, saidPending = false, saidCap = null;
@@ -1613,7 +1617,7 @@ async function prompt(text, image = null, note = '', byVoice = false, news = nul
     ink.endRequest();
     // Asked by voice and answered with a question: the overlay opens the mic once the reply has been typed and said.
     // A reminder nudge, with "Listen after reminders" on: the same hands-free listen, for "snooze 10 minutes".
-    const listen = !stalled && !controller.signal.aborted && ((byVoice && autoListenOn() && listensAfter(lastReply, config.listenEvery)) || (listenAfter && snoozeListenOn())) ? { turn, speech: voice?.id ?? null } : null;
+    const listen = !stalled && !controller.signal.aborted && ((byVoice && (voiceChatOn() || (autoListenOn() && listensAfter(lastReply, config.listenEvery)))) || (listenAfter && snoozeListenOn())) ? { turn, speech: voice?.id ?? null } : null;
     autoTurn = listen ? turn : null;
     rated = !stalled && !controller.signal.aborted && !!turnWords && learn.ok + learn.bad > 0;
     const rate = rated && learningOn();
@@ -2383,6 +2387,7 @@ function onVoice(m) {
   else if (m.type === 'voice' && m.text?.trim()) {
     // Key release to the words arriving (mic tail and the recogniser finishing), to see what that step costs.
     if (typeof m.ms === 'number') logLine('voice_final', { ms: m.ms, via: String(m.via ?? ''), chars: m.text.trim().length });
+    voiceChat = m.via === 'handsfree';
     onSpoken(m.text.trim(), m.area);
   }
   else if (m.type === 'voice_state' && m.state === 'idle' && snap?.waitingVoice) snap.waitingVoice = false;
@@ -2390,6 +2395,7 @@ function onVoice(m) {
   else if (m.type === 'voice_mics') { mics = cleanMics(m); panel(); }
   else if (m.type === 'voice_lang') { langInfo = { id: String(m.id ?? ''), engine: String(m.engine ?? ''), online: !!m.online }; logLine('speech_lang', langInfo); panel(); }
   else if (m.type === 'voice_error') {
+    if (m.code === 'nothing_heard') voiceChat = false;
     if (m.code === 'nothing_heard' && snap) { snap.waitingVoice = false; return; }
     if (m.code === 'model_missing') startVoiceDownload();
     else if (m.code === 'permission' && !MAC) {
@@ -2915,14 +2921,14 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   else if (m.type === 'write_tap') onWriteTap();
   else if (m.type === 'auto_listen') {
     // Still the latest reply, nothing running since, and still switched on: listen once, hands-free.
-    if (m.turn !== autoTurn || busy || !(autoListenOn() || snoozeListenOn())) return;
+    if (m.turn !== autoTurn || busy || !(voiceChatOn() || autoListenOn() || snoozeListenOn())) return;
     autoTurn = null;
-    logLine('auto_listen', { turn: m.turn });
-    send({ type: 'listen', wait: autoListenOn() ? listenSecs() : 8 });
+    logLine('auto_listen', { turn: m.turn, chat: voiceChatOn() });
+    send({ type: 'listen', wait: voiceChatOn() ? 0 : autoListenOn() ? listenSecs() : 8 });
   }
   else if (m.type === 'feedback') { if (m.good === true) onFeedback('good', '', 'button'); else wrongButton().catch((e) => console.error('feedback', e)); }
   else if (m.type === 'reply_said') { if (!busy) { holdWake(false); saidPending = false; clearTimeout(saidCap); stir(); } }
-  else if (m.type === 'listen_cancel') { autoTurn = null; send({ type: 'listen_cancel' }); } // Esc while the mic is on
+  else if (m.type === 'listen_cancel') { autoTurn = null; voiceChat = false; send({ type: 'listen_cancel' }); } // Esc while the mic is on
   // A link clicked on the research card: web and mail links only.
   else if (m.type === 'open_link') { const v = checkLink(m.url); if (v.level === SAFE) openUrl(String(m.url)); else console.error('open_link blocked:', v.reason); }
   else if (m.type === 'list_toggle') toggleItem(String(m.id)).catch((e) => console.error('list', e));
